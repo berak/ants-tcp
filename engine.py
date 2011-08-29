@@ -170,7 +170,7 @@ def run_game(game, bots, options):
             # handle any logs that get_moves produced
             for b, errors in enumerate(error_lines):
                 if errors:
-                    print "ERRORS", bots[b].name, bots[b].game_id, errors, game.is_alive(b), statuses[b], bot_status[b]
+                    #~ print "ERRORS", bots[b].name, bots[b].game_id, errors, game.is_alive(b), statuses[b], bot_status[b]
                     if error_logs and error_logs[b]:
                         error_logs[b].write('\n'.join(errors)+'\n')
             # set status for timeouts and crashes
@@ -183,7 +183,7 @@ def run_game(game, bots, options):
             if turn > 0 and not game.game_over():
                 for b, moves in enumerate(bot_moves):
                     if game.is_alive(b):
-                        bots[b].write( "INFO: %d %s game:%d\n" % (b,bots[b].name,bots[b].game_id) )
+                        #~ bots[b].write( "INFO: %d %s game:%d\n" % (b,bots[b].name,bots[b].game_id) )
                         valid, ignored, invalid = game.do_moves(b, moves)
                         if output_logs and output_logs[b]:
                             output_logs[b].write('# turn %s\n' % turn)
@@ -232,7 +232,7 @@ def run_game(game, bots, options):
                 status_line = 'status %s\n' % ' '.join(map(str, game.order_for_player(b, bot_status)))
                 end_line = 'end\nplayers %s\n' % len(bots) + score_line + status_line
                 state = end_line + game.get_player_state(b) + 'go\n'
-                print "ELIMINATED", b, bots[b].name, bot_status[b], " game:" , bots[b].game_id, "turn:",turn, "sock:",bots[b].sock
+                #~ print "ELIMINATED", b, bots[b].name, bot_status[b], " game:" , bots[b].game_id, "turn:",turn, "sock:",bots[b].sock
                 bots[b].write( "INFO: ELIMINATED " + bot_status[b] + "\n")
                 bots[b].write(state)
                 if input_logs and input_logs[b]:
@@ -270,7 +270,7 @@ def run_game(game, bots, options):
         score_line ='score %s\n' % ' '.join(map(str, game.get_scores()))
         status_line = 'status %s\n' % ' '.join(bot_status)
         end_line = 'end\nplayers %s\n' % len(bots) + score_line + status_line
-        print end_line
+        #~ print end_line
         if stream_log:
             stream_log.write(end_line)
             stream_log.write(game.get_state())
