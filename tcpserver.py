@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import select
-import signal
+#~ import select
+#~ import signal
 import socket
 import sys
 import os
@@ -10,6 +10,7 @@ import json
 import random
 import threading
 import trueskill
+import subprocess
 
 from time import time,asctime
 
@@ -49,147 +50,162 @@ import json
 import logging
 
 log = logging.getLogger("game.Ants")
-        
-class TcpPlayer(object):
-    def __init__( self, sock, address, name ):
-        
-        self.address = address
+
+#
+## sandbox impl
+#
+class TcpBox(threading.Thread):
+    def __init__(self, sock):
+        threading.Thread.__init__(self)
         self.sock = sock
-        self.name = name
-        self.id = 0
-        self.game = None
-        self.poll_string = None
+        self.inp_lines = []
+        
+        #dbg stuff
+        self.name =""
+        self.game_id=0
+        
+        # start thread
+        #~ threading.Thread.start(self)
+        self.start()
         
     def __del__(self):
-        #~ log.info( "rip, player " + self.name )
+        #~ print "__del__", self
+        self._close()
+        
+    def _readline(self):
+        s=""
+        while(self.sock):
+            try:
+                c = self.sock.recv(1)
+            except Exception, e:
+                #~ print e
+                break                
+            if ( not c ):
+                break
+            elif ( c=='\r' ):
+                continue
+            elif ( c=='\n' ):
+                break
+            else:
+                s += c
+        return s
+        
+    def run( self ):
+        while self.sock:
+            line = self._readline() 
+            ## an invalid line here can be the end of a message or the death of the other end. don't bailout, since we can't decide 
+            if line:
+                self.inp_lines.append(line)
+
+    ## next 2 are commented out to avoid interference with the thread interface
+    #~ @property
+    #~ def is_alive(self):
+        #~ return self.sock != None
+
+    #~ def start(self, shell_command):
+        #~ print "Thread start", self
+        #~ pass
+        
+    def _close(self):
         try:
             self.sock.close()
-        except:
-            pass
-                    
-    def write(self,s):
-        #~ log.info( self.name + "> " + s )
-        try:
-            self.sock.sendall(s)
-        except:
-            log.warning("invalid player socket! " + self.name)
+        except: pass
+        self.sock = None
+        
+    def kill(self):
+        #~ print "Thread kill", self, self.sock
+        try: 
+            ## you died of dysentry
+            self.write("end\nyou timed out.\n\n")
+        except: pass
             
-    #~ def read(self):
-        #~ return self.sock.recv(8012)
-    def poll(self):
-        return self.poll_string
-    def clear(self):
-        self.poll_string=None
+        self._close()
+        
+
+    def write(self, str):
+        #~ print "Thread write", self,str
+        if self.sock == None:
+            log.warning("writing to invalid socket %s  game:%d" % (self.name,self.game_id) )
+            return False
+        self.sock.sendall(str)
+
+    def write_line(self, line):
+        #~ print "Thread write_line", self, line
+        return self.write(line + "\n")
+
+    def read_line(self, timeout=0):
+        if (len(self.inp_lines) == 0) or (not self.sock):
+            return None
+        line = self.inp_lines[0]
+        self.inp_lines = self.inp_lines[1:]
+        return line
+
+
+    ## dummies
+    def release(self):
+        #~ print "Thread release", self
+        self._close()
+        
+    def pause(self):
+        #~ print "Thread pause", self
+        pass
+
+    def resume(self):
+        #~ print "Thread resume", self
+        pass
+        
+    def read_error(self, timeout=0):
+        return None
+        
+    ## never used
+    #~ def retrieve(self):
+        #~ print "Thread ertriev", self
+        #~ pass
+
+
+from engine import run_game
 
     
-class TcpGame(object):
+class TcpGame(threading.Thread):
     def __init__( self, db, opts, map_name, nplayers ):
+        threading.Thread.__init__(self)
         self.db = db
         self.id = db.latest
         self.opts = opts
         self.players = []
         self.bot_status = []
-        self.ants = Ants(opts)
         self.map_name = map_name
-        self.timestep = 0
         self.nplayers = nplayers
+        self.bots=[]
+        self.ants = Ants(opts)
         
-    #~ def __del__(self):
-        #~ log.info( "rip, game   " + str(self.id) )
-    
-    def step( self ):
-        t = time()
-        timed_out = (t - self.timestep > self.opts['turntime']*0.001)
-        
-        inp_ok = 0
-        for i,p in enumerate(self.players):
-            if not self.ants.is_alive(i): continue
-            if not p.sock: continue
-            if p.poll(): inp_ok += 1
-                
-        if (inp_ok == len(self.players)) or timed_out:
-            self.timestep = time()
-            return self.do_turn()
-            
-        return True
-        
-    def turn(self):
-        return "game " + str(self.id) + " turn " + str(self.ants.turn) + " : "
-        
-    def do_turn( self ):
-        self.ants.start_turn()
-        for i,p in enumerate(self.players):
-            s = p.poll()
-            #~ log.info( self.turn() + p.name + " : " + str(s) )
-            p.clear()
-            if not self.ants.is_alive(i): 
-                if self.bot_status[i] != "eliminated":
-                    log.debug( self.turn() + p.name + " got eliminated !")
-                    p.write("INFO: "+p.name+" got eliminated !\n")
-                self.bot_status[i] = "eliminated"
-                continue
-            if s == None:
-                log.warning( self.turn() + p.name + " timed out !")
-                if self.bot_status[i] != "timed out":
-                    log.debug( self.turn() + p.name + " timed out !")
-                self.bot_status[i] = "timed out"
-                p.write("INFO: "+p.name+" timed out !\n")
-                continue
-                
-            self.bot_status[i] = "survived"
-                
-            try:
-                #~ valid, ignored, invalid = self.ants.do_moves(i, s.split('\r\n')) 
-                # ;) Rabidus
-                valid, ignored, invalid = self.ants.do_moves(i, s.replace('\r','\n').replace('\n\n','\n').split('\n')) 
-            except:
-                log.error("!!!!!!!! do_moves failed " + str(self.ants.turn) + " : " + str(p.name))
-                
-            if ignored:
-                txt = " ignored: " + str(ignored) 
-                p.write( "INFO: " + txt + '\n' )
-                #~ log.debug(self.turn() +p.name +txt)
-            if invalid:
-                txt = " invalid: " + str(invalid) 
-                p.write( "INFO: " + txt + '\n' )
-                #~ log.debug( self.turn()  +p.name  + txt)
-                
-        try:
-            self.ants.finish_turn()
-        except:
-            log.error("!!!!!!!! finish_turn failed "  + str(self.ants.turn) + " : " + str(self.id))
-        
-        # finished ?
-        if ( self.ants.turn >= self.ants.turns) or ( self.ants.game_over() ):
-            try:
-                self.ants.finish_game()
-                self.save_game()
-            except:
-                log.error(" !!!!!!!!!! finish game failed "  + str(self.ants.turn) + " : " + str(self.id) + " !!!!!!!!!!! ")
-            return False # finished
-        # alive
-        else:           
-            for i,p in enumerate(self.players):
-                if self.ants.is_alive(i) and p.sock:
-                    p.write( 'turn ' + str(self.ants.turn) + '\n' + self.ants.get_player_state(i) + "go\n" )
-        return True
+    def addplayer(self, name,sock):
+        self.players.append(name)
+        box = TcpBox(sock)
+        box.name=name
+        box.game_id = self.id
+        self.bots.append( box )
+        return len(self.bots)
 
-    def save_game(self):
-        log.info("saving game : " + str(self.id) )
+    def run(self):
+        log.info( "run game %d %s %s" %(self.id,self.map_name,self.players) )
+        for i,p in enumerate(self.bots):
+            p.write( "INFO: game " + str(self.id) + " on map " + str(self.map_name) + " : " + str(self.players) + "\n" )
+            #~ plist = ""
+            #~ for j,q in enumerate(self.players):
+                #~ if j != i:
+                    #~ plist += " " + q
+            #~ p.write( "INFO: your opponents are: " + plist + "\n" )
+        
+        # finally, THE GAME !
+        game_result = run_game(self.ants, self.bots, self.opts)
+        
+        log.info("saving game : " + str(self.id) + " turn " + str(self.ants.turn) )
         scores = self.ants.get_scores()
         ranks = [sorted(set(scores), reverse=True).index(x) for x in scores]
-        game_result = {
-            'challenge': 'ants',
-            'game_id': self.id,
-            'status': self.bot_status,
-            'score': scores,
-            'rank': ranks,
-            'replayformat': 'json',
-            'replaydata': self.ants.get_replay(),
-            'playernames': [],
-        }
+        game_result['playernames'] = []
         for i,p in enumerate(self.players):
-            game_result['playernames'].append(p.name)
+            game_result['playernames'].append(p)
         rep_name = "games/"+ str(self.id)+".replay"
         f = open( rep_name, 'w' )
         json.dump(game_result,f)
@@ -201,16 +217,16 @@ class TcpGame(object):
         g.map = self.map_name
         g.date = asctime()
         plr = {}
+        states = game_result["status"]
         for i,p in enumerate(self.players):
-            if p.name in self.db.players:
-                player = self.db.players[p.name]
+            if p in self.db.players:
+                player = self.db.players[p]
             else:
                 player = PlayerData()
-                player.name = p.name
-                self.db.players[p.name] = player
-            #~ player.games.append(g.id)
+                player.name = p
+                self.db.players[p] = player
             player.ngames += 1
-            plr[p.name] = scores[i]
+            plr[p] = (scores[i], states[i])
         g.players = plr
         self.db.games[g.id] = g    
 
@@ -218,28 +234,17 @@ class TcpGame(object):
         if len(self.db.games) > int(self.opts['db_max_games']):
             k = self.db.games.keys().pop(0)
             del(self.db.games[k])
-        
-        log.info("db : " + str(len(self.db.games)) + " games")
-        log.info("db : " + str(len(self.db.players)) + " players")
-        
-        # send final game info to players:
-        end_line  = 'INFO: hope, you enjoyed game ' + str(self.id) + '.\n'
-        end_line += 'INFO: players: '
-        for i,p in enumerate(self.players):
-            end_line += ' ' + p.name
-        end_line += '\nINFO: scores :  %s\n' % ' '.join([str(s) for s in scores])
-        end_line += 'end\n'
-        
-        for i,p in enumerate(self.players):
-            try:
-                p.write( end_line )
-            except:
-                continue
-                
-        self.calc_ranks( self.players, ranks )
+
+        # update rankings
+        if self.opts['skill'] == 'jskills':
+            self.calk_ranks_js( self.players, ranks )
+        else : # default
+            self.calc_ranks_py( self.players, ranks )
+            
         
         
-    def calc_ranks( self, players, ranks ):
+   
+    def calc_ranks_py( self, players, ranks ):
         class TrueSkillPlayer(object):
             def __init__(self, name, skill, rank):
                 self.name = name
@@ -249,31 +254,54 @@ class TcpGame(object):
 
         ts_players = []
         for i, p in enumerate(players):
-            pdata = self.db.players[p.name]
+            pdata = self.db.players[p]
             ts_players.append( TrueSkillPlayer(i, (pdata.mu,pdata.sigma), ranks[i] ) )
             
         trueskill.AdjustPlayers(ts_players)
         
         for i, p in enumerate(players):
-            pdata = self.db.players[p.name]
+            pdata = self.db.players[p]
             pdata.mu    = ts_players[i].skill[0]
             pdata.sigma = ts_players[i].skill[1]
             pdata.skill = pdata.mu - pdata.sigma * 3
 
 
-class TCPGameServer(object):    
+    def calk_ranks_js( self, players, ranks ):
+        #~ classpath = "{0}/JSkills_0.9.0.jar:{0}".format(
+                #~ os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                    #~ "jskills"))
+        classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
+        tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        for i,p in enumerate(players):
+            pdata = self.db.players[p]
+            tsupdater.stdin.write("P %s %d %f %f\n" % (p, ranks[i], pdata.mu, pdata.sigma))
+        tsupdater.stdin.write("C\n")
+        tsupdater.stdin.flush()
+        tsupdater.wait()
+        for player in players:
+            # this might seem like a fragile way to handle the output of TSUpdate
+            # but it is meant as a double check that we are getting good and
+            # complete data back
+            result = tsupdater.stdout.readline().split()
+            if str(player) != result[0]:
+                log.error("Unexpected player name in TSUpdate result. %s != %s"
+                        % (player, result[0]))
+                return False
+            pdata = self.db.players[player]
+            pdata.mu    = float(result[1].replace(",","."))
+            pdata.sigma = float(result[2].replace(",","."))
+            pdata.skill = pdata.mu - pdata.sigma * 3
+
+class TCPGameServer(object):        
     def __init__(self, opts, game_db, port=1234, backlog=5):
         self.opts = opts
         self.db = game_db
         self.clients = []
-        self.clientmap = {}
-        self.games = {}
         
         # tcp binding options
         self.port = port
         self.backlog = backlog
-        self.running = False
-        self.force_shutdown = False
         
         self.bind()
         
@@ -287,15 +315,11 @@ class TCPGameServer(object):
         
     def shutdown(self):
         log.info('Shutting down server...')
-        # Close existing client sockets
-        for o in self.clients:
-            o.close()
-        # Close the server
         self.server.close()
-
+        self.server=None
 
     def select_map(self):
-        id = 1 + int(199 * random.random())
+        id = 1 + int(11 * random.random())
         base_name = 'symmetric_'+str(id)+'.map'
         map_name = os.path.join( 'maps', 'symmetric_maps', base_name)
         data = ""
@@ -318,172 +342,28 @@ class TCPGameServer(object):
         
         # get a map and create antsgame
         map_name, map_data, nplayers = self.select_map()
-        log.info( "next game is " + str(self.db.latest) + " : " + map_name + " needs " + str(nplayers) + " players." )
         opts = self.opts
         opts['map'] = map_data
        
+        log.info( "game %d %s needs %d players" %(self.db.latest,map_name,nplayers) )
         return TcpGame( self.db, opts, map_name, nplayers )
                 
                 
-    def start_game(self, game):
-        log.info( "starting game " + str(game.id) + " : " + game.map_name )
-        game.ants.start_game()
-        game.timestep = time()
-            
-        # send info and turn 0    
-        for i,p in enumerate(game.players):
-            game.bot_status.append("survived")
-            p.write( "INFO: you joined game " + str(game.id) + " on map " + str(game.map_name) + "\n" )
-            plist = ""
-            for j,q in enumerate(game.players):
-                if j != i:
-                    plist += " " + str(q.name)
-            p.write( "INFO: your opponents are: " + plist + "\n" )
-            p.write( game.ants.get_player_start(i) + 'ready\n' )
-     
-        # cache it
-        self.games[game.id] = game
-        
-
-    def check_games(self):
-        for k, g in self.games.iteritems():
-            if not g.step():
-                log.info("finished game " + str(k) )
-                for i,p in enumerate(g.players):
-                    self.kill_player( p.sock )
-                break
-
-
-    def kill_player(self, client):
-        if client == None:
-            return
-            
-        try: 
-            client.close()
-            self.clients.remove(client)
-        except:
-            log.warning( str(client) + "was already closed" )
-            pass
-
-        try:
-            p = self.clientmap[client]
-            p.sock = None
-            del(self.clientmap[client])
-        except:
-            log.warning( str(client) + "wasn't in the clientmap" )
-            pass
-        try:
-            if p.game == self.db.latest:
-                g = self.next_game
-            else:
-                g = self.games[p.game]
-        except:
-            log.warning( str(p.name) + " had no game" )
-            pass
-            
-        try:
-            if g.ants.turn < 1:
-                g.players.remove(p)
-                return
-        except:
-            log.warning( str(p.name) + " could not be removed" )
-            pass
-        try:
-            g.ants.kill_player(p.id)
-            alive=0
-            for i,p in enumerate(g.players):
-                if g.ants.is_alive(i) and p.sock : alive += 1
-            if alive == 0:
-                del(self.games[g.id])
-        except:
-            log.warning( str(p.name) + " was already dead" )
-            pass
-            
-
-
     def serve(self):
-        self.running = True
-        last_update = time()
 
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
         
-        # meet 'the select loop from hell'.
-        while self.running or (len(self.clients) > 0 and not self.force_shutdown):
-            if (time() - last_update) >= 10.0:
-                log.info('%d connections, %d / %d idle, %d games' % (len(self.clients), len(self.next_game.players), self.next_game.nplayers, len(self.games)))
-                last_update = time()
+        while self.server:
+            client, address = self.server.accept()
+            data = client.recv(4096).strip()
+            name = data.split()[1]
+            log.info('user %s connected: %d to game %d' % (name,client.fileno(),self.next_game.id))
+            # start game if enough players joined
+            if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
+                game = self.next_game
+                game.start()
+
+                self.next_game = self.create_game()
                 
-            self.check_games()
-            
-            try:
-                inputready,outputready,exceptready = select.select([self.server] + self.clients, [], [], 0.1)
-            except select.error, e:
-                log.exception(e)
-                break
-            except socket.error, e:
-                log.exception(e)
-                break
-                
-            for s in inputready:
-                
-                if s == self.server:
-                    # handle the server socket
-                    client, address = self.server.accept()
-                    if not client:
-                        continue
-                    try:
-                        player_data = client.recv(4096).strip()
-                        player_name = player_data.split()[1]
-                        log.info('user %s connected: %d from %s' % (player_name,client.fileno(), address))
-                        player = TcpPlayer( client, address, player_name )
-                        player.id = len(self.next_game.players)
-                        player.game = self.next_game.id
-                        self.next_game.players.append( player )
-                        player.write('INFO: hello ' + player.name + ', we still need ' +str(self.next_game.nplayers-len(self.next_game.players))+ ' more players for the upcoming game.\n')
-                        self.clientmap[client] = player
-                        self.clients.append(client)
-                    except:
-                        continue
-                            
-                    # start game if enough players joined
-                    if len(self.next_game.players) == self.next_game.nplayers:
-                        self.start_game(self.next_game)
-                        # create next game 
-                        self.next_game = self.create_game()
-                    
-                else:
-                    # handle all other sockets
-                    player = self.clientmap[s]
-                    try:
-                        data = s.recv(BUFSIZ)
-                        player.poll_string = data
-                                
-                    except socket.error, e:
-                        # Remove
-                        log.warning('client socket error: %s' % e)
-                        self.kill_player( s )
         self.shutdown()
-
-
-
-
-#~ def main():
-    #~ gid = 0
-    #~ try: # to start numbering with the last game played
-        #~ f = open( "games/last", 'r')
-        #~ gid = int(f.read())
-        #~ f.close()
-    #~ except:
-        #~ pass
-        
-    #~ tcp = TCPGameServer( game_id=gid-1 )
-
-    #~ try:
-        #~ tcp.serve()
-    #~ except:
-        #~ tcp.shutdown() # notify clients of our failure .
-        #~ raise
-
-#~ if __name__ == "__main__":
-    #~ main()

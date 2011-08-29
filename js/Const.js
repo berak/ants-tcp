@@ -2,7 +2,7 @@
  * width of left side panel
  * @const
  */
-var LEFT_PANEL_W = 48;
+var LEFT_PANEL_W = 40;
 /**
  * width of right side panel
  * @const
@@ -32,7 +32,7 @@ var PLAYER_COLORS = [
 /**
  * @const
  */
-var COLOR_SAND = '#532';
+var SAND_COLOR = '#532';
 /**
  * @const
  */

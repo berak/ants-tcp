@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 from random import randrange, choice, shuffle, randint, seed
 from math import sqrt
-import os
 from collections import deque, defaultdict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 from fractions import Fraction
 import operator
 import string
 from game import Game
 from sys import maxint
+from copy import deepcopy
 
 ANTS = 0
 LAND = -1
@@ -55,12 +60,16 @@ class Ants(Game):
             self.food_visible = randrange(*self.food_visible)
         self.food_extra = Fraction(0,1)
 
+        self.cutoff_percent = options.get('cutoff_percent', 0.90)
+        self.cutoff_turn = options.get('cutoff_turn', 100)
+
         self.do_attack = {
-            'power':   self.do_attack_power,
+            'focus':   self.do_attack_focus,
             'closest': self.do_attack_closest,
             'support': self.do_attack_support,
             'damage':  self.do_attack_damage
-        }.get(options.get('attack'), self.do_attack_damage)
+        }.get(options.get('attack'), self.do_attack_focus)
+        self.kill_points = options.get('kill_points', 2)
 
         self.do_food = {
             'none':      self.do_food_none,
@@ -80,18 +89,29 @@ class Ants(Game):
 
         self.all_food = []     # all food created
         self.current_food = {} # food currently in game
+        self.pending_food = defaultdict(int)
 
         # initalise scores
         self.score = [Fraction(0,1)]*self.num_players
         self.score_history = [[s] for s in self.score]
         self.bonus = [0 for s in self.score]
 
+        # used to cutoff games early
+        self.cutoff_bot = LAND # Can be ant owner, FOOD or LAND
+        self.cutoff_turns = 0
+        # used to calculate the turn when the winner took the lead
+        self.winning_bot = None
+        self.winning_turn = 0
+        # used to calculate when the player rank last changed
+        self.ranking_bots = None
+        self.ranking_turn = 0
+
         # initialise size
         self.height, self.width = map_data['size']
         self.land_area = self.height*self.width - len(map_data['water'])
 
         # initialise map
-        self.map = [[LAND]*self.width for i in range(self.height)]
+        self.map = [[LAND]*self.width for _ in range(self.height)]
 
         # initialise water
         for row, col in map_data['water']:
@@ -107,7 +127,7 @@ class Ants(Game):
             self.add_food(loc)
 
         # track which food has been seen by each player
-        self.seen_food = [set() for i in range(self.num_players)]
+        self.seen_food = [set() for _ in range(self.num_players)]
 
         # used to remember where the ants started
         self.initial_ant_list = sorted(self.current_ants.values(), key=operator.attrgetter('owner'))
@@ -117,7 +137,7 @@ class Ants(Game):
         self.offsets_cache = {}
 
         # used to track dead players, ants may still exist, but order are not processed
-        self.killed = [False for i in range(self.num_players)]
+        self.killed = [False for _ in range(self.num_players)]
 
         # used to give a different ordering of players to each player
         #   initialised to ensure that each player thinks they are player 0
@@ -128,7 +148,7 @@ class Ants(Game):
         # ants and food will reset spots so a second land entry will be sent
         self.revealed = [[[False for col in range(self.width)]
                           for row in range(self.height)]
-                         for p in range(self.num_players)]
+                         for _ in range(self.num_players)]
         # used to track what a player can see
         self.init_vision()
 
@@ -159,7 +179,7 @@ class Ants(Game):
             if not line or line[0] == '#':
                 continue
 
-            key, value = line.split(' ')
+            key, value = line.split(' ', 1)
             if key == 'cols':
                 width = int(value)
             elif key == 'rows':
@@ -247,8 +267,8 @@ class Ants(Game):
 
         # create vision arrays
         self.vision = []
-        for p in range(self.num_players):
-            self.vision.append([[0]*self.width for row in range(self.height)])
+        for _ in range(self.num_players):
+            self.vision.append([[0]*self.width for __ in range(self.height)])
 
         # initialise the data based on the initial ants
         self.update_vision()
@@ -543,7 +563,7 @@ class Ants(Game):
         # determine the direction that each ant moves
         #  (holding any ants that don't have orders)
         move_direction = {}
-        for player, orders in enumerate(self.orders):
+        for orders in self.orders:
             for loc, direction in orders:
                 move_direction[self.current_ants[loc]] = direction
         for ant in self.current_ants.values():
@@ -710,7 +730,12 @@ class Ants(Game):
             enemies = self.nearby_ants(ant.loc, self.attackradius, ant.owner)
             if enemies:
                 nearby_enemies[ant] = enemies
-                damage_per_enemy = Fraction(1, len(enemies))
+                strenth = 10 # dot dot dot
+                if ant.orders[-1] == '-':
+                    strenth = 10
+                else:
+                    strenth = 10
+                damage_per_enemy = Fraction(strenth, len(enemies)*10)
                 for enemy in enemies:
                     damage[enemy] += damage_per_enemy
 
@@ -718,7 +743,7 @@ class Ants(Game):
         for ant in damage:
             if damage[ant] >= 1:
                 self.kill_ant(ant)
-                score = Fraction(1, len(nearby_enemies[ant]))
+                score = Fraction(self.kill_points, len(nearby_enemies[ant]))
                 for enemy in nearby_enemies[ant]:
                     self.score[enemy.owner] += score
 
@@ -752,14 +777,14 @@ class Ants(Game):
             self.kill_ant(ant)
             score_share = len(enemies)
             for enemy in enemies:
-                self.score[enemy.owner] += Fraction(1, score_share)
+                self.score[enemy.owner] += Fraction(self.kill_points, score_share)
 
-    def do_attack_power(self):
+    def do_attack_focus(self):
         """ Kill ants which are the most surrounded by enemies
 
-            For a given ant define: Power = 1/NumOpponents
+            For a given ant define: Focus = 1/NumOpponents
             An ant's Opponents are enemy ants which are within the attackradius.
-            Ant alive if its Power is greater than Power of any of his Opponents.
+            Ant alive if its Focus is greater than Focus of any of his Opponents.
             If an ant dies 1 point is shared equally between its Opponents.
         """
 
@@ -771,12 +796,12 @@ class Ants(Game):
         # determine which ants to kill
         ants_to_kill = []
         for ant in self.current_ants.values():
-            # determine this ants weakness (1/power)
+            # determine this ants weakness (1/focus)
             weakness = len(nearby_enemies[ant])
             # an ant with no enemies nearby can't be attacked
             if weakness == 0:
                 continue
-            # determine the most powerful nearby enemy
+            # determine the most focused nearby enemy
             min_enemy_weakness = min(len(nearby_enemies[enemy]) for enemy in nearby_enemies[ant])
             # ant dies if it is weak as or weaker than an enemy weakness
             if min_enemy_weakness <= weakness:
@@ -787,7 +812,7 @@ class Ants(Game):
             self.kill_ant(ant)
             score_share = len(nearby_enemies[ant])
             for enemy in nearby_enemies[ant]:
-                self.score[enemy.owner] += Fraction(1, score_share)
+                self.score[enemy.owner] += Fraction(self.kill_points, score_share)
 
     def do_attack_closest(self):
         """ Iteratively kill neighboring groups of ants """
@@ -828,7 +853,7 @@ class Ants(Game):
                 if len(ant_group) > 1:
                     score_share = len(ant_group)
                     for ant in ant_group:
-                        self.score[ant.owner] += Fraction(1, score_share)
+                        self.score[ant.owner] += Fraction(self.kill_points, score_share)
                         self.kill_ant(ant)
 
     def destination(self, loc, d):
@@ -909,17 +934,19 @@ class Ants(Game):
 
     def do_food_none(self, amount=0):
         """ Place no food """
-        pass
+        return amount
 
     def do_food_random(self, amount=1):
         """ Place food randomly on the map """
-        for f in range(amount*self.num_players):
-            for t in range(10):
+        for _ in range(amount):
+            while True:
                 row = randrange(self.height)
                 col = randrange(self.width)
                 if self.map[row][col] == LAND:
-                    self.add_food((row, col))
+                    self.pending_food[(row, col)] += 1
                     break
+        self.place_food()
+        return 0
 
     def do_food_offset(self, amount=1):
         """ Place food at the same offset from each player's start position
@@ -930,7 +957,8 @@ class Ants(Game):
             If the spot is not land, find the closest land to that spot and
               place the food there.
         """
-        for f in range(amount):
+        left_over = amount % len(self.initial_ant_list)
+        for _ in range(amount//len(self.initial_ant_list)):
             dr = -self.height//4 + randrange(self.height//2)
             dc = -self.width//4  + randrange(self.width//2)
             for ant in self.initial_ant_list: # assumes one ant per player
@@ -938,7 +966,9 @@ class Ants(Game):
                 col = (ant.loc[1]+dc)%self.width
                 coord = self.find_closest_land((row, col))
                 if coord:
-                    self.add_food(coord)
+                    self.pending_food[coord] += 1
+        self.place_food()
+        return left_over
 
     def do_food_sections(self, amount=1):
         """ Place food randomly in each player's start section
@@ -947,14 +977,15 @@ class Ants(Game):
               the start of the game.
             Place food evenly into each space.
         """
-        for f in range(amount):
+        left_over = amount % self.num_players
+        for _ in range(amount//self.num_players):
             for p in range(self.num_players):
                 squares = self.initial_access_map[p]
-                for t in range(10):
-                    row, col = choice(squares)
-                    if self.map[row][col] == LAND:
-                        self.add_food((row, col))
-                        break
+                row, col = choice(squares)
+                if self.map[row][col] == LAND:
+                    self.pending_food[(row, col)] += 1
+        self.place_food()
+        return left_over
 
     def do_food_visible(self, amount=1):
         """ Place food in vison of starting spots """
@@ -965,31 +996,26 @@ class Ants(Game):
             # add a sentinal so we know when to shuffle
             self.food_sets_visible.append(None)
 
-            # counter for food locations
-            if not hasattr(self, 'pending_food'):
-                self.pending_food = defaultdict(int)
-        # increment food counter for food spawning locations
-        for f in range(amount):
+        # place food while next food set is <= left over amount
+        while True:
             s = self.food_sets_visible.pop()
             # if we finished one rotation, shuffle for the next
             if s == None:
                 shuffle(self.food_sets_visible)
                 self.food_sets_visible.appendleft(None)
                 s = self.food_sets_visible.pop()
-            self.food_sets_visible.appendleft(s)
 
-            for loc in s:
-                self.pending_food[loc] += 1
+            if len(s) > amount:
+                # reached food limit, save set, place food and return left over
+                self.food_sets_visible.append(s)
+                self.place_food()
+                return amount
+            else:
+                amount -= len(s)
+                self.food_sets_visible.appendleft(s)
+                for loc in s:
+                    self.pending_food[loc] += 1
 
-        # place food in scheduled locations if they are free
-        for loc in self.pending_food.keys():
-            if self.map[loc[0]][loc[1]] == LAND:
-                self.add_food(loc)
-                self.pending_food[loc] -= 1
-
-                # remove from queue if the count reaches 0
-                if not self.pending_food[loc]:
-                    del self.pending_food[loc]
 
     def do_food_symmetric(self, amount=1):
         """ Place food in the same relation player start positions.
@@ -1006,24 +1032,28 @@ class Ants(Game):
             # add a sentinal so we know when to shuffle
             self.food_sets.append(None)
 
-            # counter for food locations
-            if not hasattr(self, 'pending_food'):
-                self.pending_food = defaultdict(int)
-
-        # increment food counter for food spawning locations
-        for f in range(amount):
+        # place food while next food set is <= left over amount
+        while True:
             s = self.food_sets.pop()
             # if we finished one rotation, shuffle for the next
             if s == None:
                 shuffle(self.food_sets)
                 self.food_sets.appendleft(None)
                 s = self.food_sets.pop()
-            self.food_sets.appendleft(s)
 
-            for loc in s:
-                self.pending_food[loc] += 1
+            if len(s) > amount:
+                self.food_sets.append(s)
+                self.place_food()
+                return amount
+            else:
+                amount -= len(s)
+                self.food_sets.appendleft(s)
+                for loc in s:
+                    self.pending_food[loc] += 1
 
-        # place food in scheduled locations if they are free
+    def place_food(self):
+        """ Place food in scheduled locations if they are free
+        """
         for loc in self.pending_food.keys():
             if self.map[loc[0]][loc[1]] == LAND:
                 self.add_food(loc)
@@ -1033,20 +1063,130 @@ class Ants(Game):
                 if not self.pending_food[loc]:
                     del self.pending_food[loc]
 
+    def offset_aim(self, offset, aim):
+        """ Return proper offset given an orientation
+        """
+        # eight possible orientations
+        row, col = offset
+        if aim == 0:
+            return offset
+        elif aim == 1:
+            return -row, col
+        elif aim == 2:
+            return row, -col
+        elif aim == 3:
+            return -row, -col
+        elif aim == 4:
+            return col, row
+        elif aim == 5:
+            return -col, row
+        elif aim == 6:
+            return col, -row
+        elif aim == 7:
+            return -col, -row
+
+    def map_similar(self, loc1, loc2, aim, player):
+        """ find if map is similar given loc1 aim of 0 and loc2 ant of player
+            return a map of translated enemy locations
+        """
+        enemy_map = {}
+        for row in range(self.height):
+            for col in range(self.width):
+                row0, col0 = self.destination(loc1, (row, col))
+                row1, col1 = self.destination(loc2, self.offset_aim((row, col), aim))
+                # compare locations
+                ilk0 = self.map[row0][col0]
+                ilk1 = self.map[row1][col1]
+                if ilk0 == 0 and ilk1 != player:
+                    # friendly ant not in same location
+                    return None
+                elif ilk0 > 0 and (ilk1 < 0 or ilk1 == player):
+                    # enemy ant not in same location
+                    return None
+                elif ilk0 < 0 and ilk1 != ilk0:
+                    # land or water not in same location
+                    return None
+                if ilk0 >= 0 and enemy_map != None:
+                    enemy_map[ilk0] = ilk1
+        return enemy_map
+
+    def get_map_symmetry(self):
+        """ Get orientation for each starting ant
+        """
+
+        # get list of player 0 ants
+        ants = [ant for ant in self.initial_ant_list if ant.owner == 0]
+        # list of
+        #     list of tuples containing
+        #         location, aim, and enemy map dict
+        orientations = [[(ants[0].loc, 0,
+            dict([(i, i, ) for i in range(self.num_players)]))]]
+        for player in range(1, self.num_players):
+            player_ants = [ant for ant in self.initial_ant_list if ant.owner == player]
+            if len(player_ants) != len(ants):
+                raise Exception("Invalid map",
+                                "This map is not symmetric.  Player 0 has {0} ants while player {1} has {2} ants."
+                                .format(len(ants), player, len(player_ants)))
+            new_orientations = []
+            for player_ant in player_ants:
+                for aim in range(8):
+                # check if map looks similar given the orientation
+                    enemy_map = self.map_similar(ants[0].loc, player_ant.loc, aim, player)
+                    if enemy_map != None:
+                        # produce combinations of orientation sets
+                        for ant_aims in orientations:
+                            new_ant_aims = deepcopy(ant_aims)
+                            new_ant_aims.append((player_ant.loc, aim, enemy_map))
+                            new_orientations.append(new_ant_aims)
+            orientations = new_orientations
+            if len(orientations) == 0:
+                raise Exception("Invalid map",
+                                "This map is not symmetric. Player {0} does not have an orientation that matches player 0"
+                                .format(player))
+        # ensure types of ant aims in orientations are symmetric
+        # place food set and double check symmetry
+        valid_orientations = []
+        for ant_aims in orientations:
+            fix = []
+            for loc, aim, enemy_map in ant_aims:
+                row, col = self.destination(loc, self.offset_aim((1,2), aim))
+                fix.append(((row, col), self.map[row][col]))
+                self.map[row][col] = FOOD
+            for loc, aim, enemy_map in ant_aims:
+                if self.map_similar(ant_aims[0][0], loc, aim, enemy_map[0]) == None:
+                    break
+            else:
+                valid_orientations.append(ant_aims)
+            for (row, col), ilk in reversed(fix):
+                self.map[row][col] = ilk
+        if len(valid_orientations) == 0:
+            raise Exception("Invalid map",
+                            "There are no valid orientation sets")
+        return valid_orientations
+
     def get_symmetric_food_sets(self, starting=False):
         """ Split map into sets of squares
 
             Each set contains self.num_players points where each point
               is at a consistent offset from each player's starting
               position.
+            A square may be the same distance to more than one player
+                which will cause the set to be smaller than the number of players
             Assumes map is symmetric.
         """
-        ant1, ant2 = self.initial_ant_list[0:2] # assumed one ant per player
-        row_t = ant1.loc[0] - ant2.loc[0]
-        col_t = ant1.loc[1] - ant2.loc[1]
+        if not hasattr(self, 'map_symmetry'):
+            # randomly choose one symmetry
+            # get_map_symmetry will raise an exception for non-symmetric maps
+            self.map_symmetry = choice(self.get_map_symmetry())
+
+
         food_sets = []
+        # start with only land squares
         visited = [[False for col in range(self.width)]
                           for row in range(self.height)]
+
+        # aim for ant 0 will always be 0
+        ant0 = self.map_symmetry[0][0]
 
         for row, squares in enumerate(visited):
             for col, square in enumerate(squares):
@@ -1060,29 +1200,37 @@ class Ants(Game):
                         if self.distance(ant.loc, (row, col)) <= self.viewradius:
                             break
                     else:
+                        # square not close enough to any starting ant
                         continue
 
-                # possible food locations
-                locations = [
-                    self.destination((row, col), (n*row_t, n*col_t))
-                    for n in range(self.num_players)
-                ]
+                # offset to ant 0
+                o_row, o_col = row - ant0[0], col - ant0[1]
+                # set of unique food locations based on offsets from each starting ant
+                locations = list(set([
+                    self.destination(loc, self.offset_aim((o_row, o_col), aim))
+                    for loc, aim, _ in self.map_symmetry
+                ]))
+                # duplicates can happen if 2 ants are the same distance from 1 square
+                # the food set will be smaller and food spawning takes this into account
 
-                # set locations to visited
-                for loc in locations:
-                    # we should not have visited these locations yet
-                    # this also catches duplicates in the current list
-                    if visited[loc[0]][loc[1]]:
-                        if starting:
-                            break # prevent starting food from breaking on asymmetric maps
-                        else:
-                            raise Exception("Invalid map",
-                                            "This map does not support symmetric food placement")
-                    visited[loc[0]][loc[1]] = True
-                else:
-                    # we only care about sets where none of the locations hit water
-                    if all(self.map[loc[0]][loc[1]] != WATER for loc in locations):
-                        food_sets.append(locations)
+                # check for spawn location next to each other
+                # create food dead zone along symmetric lines
+                too_close = False
+                loc1 = locations[0]
+                for loc2 in locations[1:]:
+                    if self.distance(loc1, loc2) == 1:
+                        # spawn locations too close
+                        too_close = True
+                        break
+                if too_close:
+                    continue
+
+                # prevent starting food from being equidistant to ants
+                if not starting or len(locations) == self.num_players:
+                    # set locations to visited
+                    for loc in locations:
+                        visited[loc[0]][loc[1]] = True
+                    food_sets.append(locations)
 
         return food_sets
 
@@ -1099,7 +1247,11 @@ class Ants(Game):
             A game is over when there are no players remaining, or a single
               winner remaining.
         """
-        return self.remaining_players() <= 1
+        if self.remaining_players() <= 1:
+            return True
+        if self.cutoff_turns >= self.cutoff_turn:
+            return True
+        return False
 
     def kill_player(self, player):
         """ Used by engine to signal that a player is out of the game """
@@ -1109,9 +1261,9 @@ class Ants(Game):
         """ Called by engine at the start of the game """
         if self.do_food != self.do_food_none:
             self.game_started = True
-            starting_food = ((self.land_area // self.food_start) // self.num_players
-                             - self.food_visible)
-            self.do_food_visible(self.food_visible)
+            starting_food = ((self.land_area // self.food_start)
+                             - self.food_visible * self.num_players)
+            self.do_food_visible(self.food_visible * self.num_players)
             self.do_food(starting_food)
 
     def finish_game(self):
@@ -1119,6 +1271,10 @@ class Ants(Game):
         players = [p for p in range(self.num_players) if self.is_alive(p)]
 
         # if there is exactly one player remaining they get food bonus
+        # if the game ends early there is no bonus
+        #    the bonus only exists to ensure a lone survivor the best chance at winning
+        #    simply removing the bonus is the best disincentive to not ending the game
+        #    games ending do to inactivity would not have the player rank changed by splitting the bonus
         if len(players) == 1:
             player = players[0]
             # the food bonus represents the maximum points a bot can get with perfect play
@@ -1127,13 +1283,15 @@ class Ants(Game):
             #   or killing an enemy ant that the food spawned into
             # plus 1 point for killing all enemy ants (losses don't matter for points)
             food_bonus = (
-                (self.turns - self.turn) * # food that will spawn
+                # food that will spawn
+                (self.turns - self.turn) *
                 Fraction(self.food_rate * self.num_players, self.food_turn)
                 + self.food_extra
-                + len(self.current_food) # food that hasn't been collected
+                # food that hasn't been collected
+                + len(self.current_food)
                 # enemy ants (player ants already received point when spawned)
                 + len([ant for ant in self.current_ants.values() if ant.owner != player])
-            )
+            ) * self.kill_points
             self.score[player] += food_bonus
             # separate bonus from score history
             self.bonus[player] = food_bonus
@@ -1142,9 +1300,9 @@ class Ants(Game):
         """ Called by engine at the start of the turn """
         self.turn += 1
         self.killed_ants = []
-        self.revealed_water = [[] for i in range(self.num_players)]
-        self.removed_food = [[] for i in range(self.num_players)]
-        self.orders = [[] for i in range(self.num_players)]
+        self.revealed_water = [[] for _ in range(self.num_players)]
+        self.removed_food = [[] for _ in range(self.num_players)]
+        self.orders = [[] for _ in range(self.num_players)]
 
     def finish_turn(self):
         """ Called by engine at the end of the turn """
@@ -1157,9 +1315,9 @@ class Ants(Game):
         self.do_attack()
         self.do_spawn()
         self.food_extra += Fraction(self.food_rate * self.num_players, self.food_turn)
-        food_now = self.food_extra // self.num_players
-        self.food_extra %= self.num_players
-        self.do_food(food_now)
+        food_now = int(self.food_extra)
+        left_over = self.do_food(food_now)
+        self.food_extra -= (food_now - left_over)
 
         for i, s in enumerate(self.score):
             if i in was_alive:
@@ -1173,6 +1331,36 @@ class Ants(Game):
         # now that all the ants have moved we can update the vision
         self.update_vision()
         self.update_revealed()
+
+        # calculate population counts for stopping games early
+        # FOOD can end the game as well, since no one is gathering it
+        pop_count = defaultdict(int)
+        for ant in self.current_ants.values():
+            pop_count[ant.owner] += 1
+        pop_count[FOOD] = len(self.current_food)
+        pop_total = sum(pop_count.values())
+        for owner, count in pop_count.items():
+            if count >= pop_total * self.cutoff_percent:
+                if self.cutoff_bot == owner:
+                    self.cutoff_turns += 1
+                else:
+                    self.cutoff_bot = owner
+                    self.cutoff_turns = 1
+                break
+        else:
+            self.cutoff_bot = LAND
+            self.cutoff_turns = 0
+
+        scores = [int(score) for score in self.score]
+        ranking_bots = [sorted(set(scores), reverse=True).index(x) for x in scores]
+        if self.ranking_bots != ranking_bots:
+            self.ranking_turn = self.turn
+        self.ranking_bots = ranking_bots
+
+        winning_bot = [p for p in range(len(scores)) if scores[p] == max(scores)]
+        if self.winning_bot != winning_bot:
+            self.winning_turn = self.turn
+        self.winning_bot = winning_bot
 
     def get_state(self):
         """ Get all state changes
@@ -1266,10 +1454,20 @@ class Ants(Game):
 
             Used by engine to report stats
         """
-        ant_count = [0 for i in range(self.num_players)]
-        for loc, ant in self.current_ants.items():
+        ant_count = [0 for _ in range(self.num_players+1)]
+        for ant in self.current_ants.values():
             ant_count[ant.owner] += 1
-        return {'ant_count': ant_count}
+        stats = OrderedDict()
+        stats['ant_count'] = ant_count
+        stats['food'] = len(self.current_food)
+        stats['cutoff'] = 'Food' if self.cutoff_bot == FOOD else '-' if self.cutoff_bot == LAND else self.cutoff_bot
+        stats['c_turns'] = self.cutoff_turns
+        stats['winning'] = self.winning_bot
+        stats['w_turn'] = self.winning_turn
+        stats['ranking_bots'] = self.ranking_bots
+        stats['r_turn'] = self.ranking_turn
+        stats['score'] = map(int, self.score)
+        return stats
 
     def get_replay(self):
         """ Return a summary of the entire game
@@ -1328,6 +1526,9 @@ class Ants(Game):
         # score_history contains Fraction objects, so round down with int function
         replay['scores'] = [map(int, s) for s in self.score_history]
         replay['bonus'] = map(int, self.bonus)
+        replay['winning_turn'] = self.winning_turn
+        replay['ranking_turn'] = self.ranking_turn
+        replay['cutoff'] = bool(self.remaining_players() > 1 and self.turns > self.turn)
 
         return replay
 
@@ -1354,3 +1555,56 @@ class Food:
 
     def __str__(self):
         return '(%s, %s, %s)' % (self.loc, self.start_turn, self.end_turn)
+
+def test_symmetry():
+    import sys
+    import visualizer.visualize_locally
+    if len(sys.argv) < 2:
+        map_file_name = 'maps/test_maps/sym_test_2.map'
+    else:
+        map_file_name = sys.argv[1]
+    with open(map_file_name, 'r') as f:
+        options = {'map': f.read(),
+                   'turns': 1,
+                   'loadtime': 1000,
+                   'turntime': 1000,
+                   'viewradius2': 77,
+                   'attackradius2': 5,
+                   'spawnradius2': 1 }
+    a = Ants(options)
+    ors = a.get_map_symmetry()
+    for o_count, ant_aims in enumerate(ors):
+        print '=== orientation {0} '.format(o_count) + '=' * 30
+        fix = []
+        lines = ['' for _ in range(a.height)]
+        for loc, aim, enemy_map in ant_aims:
+            row, col = a.destination(loc, a.offset_aim((1,2), aim))
+            fix.append(((row, col), a.map[row][col]))
+            a.map[row][col] = FOOD
+        for loc, aim, enemy_map in ant_aims:
+            print aim, enemy_map, loc
+            for row in range(a.height):
+                lines[row] += ' '
+                for col in range(a.width):
+                    row1, col1 = a.destination(loc, a.offset_aim((row, col), aim))
+                    lines[row] += MAP_RENDER[a.map[row1][col1]]
+        #for line in lines:
+        #    print line
+        #print
+        # write test file
+        if len(sys.argv) > 2:
+            test_map_name = map_file_name + ''.join([str(aim) for _, aim, __ in ant_aims]) + '.replay'
+            with open(test_map_name, 'w') as f:
+                f.write("players {0}\n".format(a.num_players))
+                f.write("rows {0}\n".format(a.height))
+                f.write("cols {0}\n".format(a.width))
+                for row in range(a.height):
+                    f.write("m ")
+                    for col in range(a.width):
+                        f.write(MAP_RENDER[a.map[row][col]])
+                    f.write("\n")
+            visualizer.visualize_locally.launch(test_map_name)
+            for (row, col), ilk in reversed(fix):
+                a.map[row][col] = ilk
+if __name__ == '__main__':
+    test_symmetry()

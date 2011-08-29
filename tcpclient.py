@@ -28,7 +28,6 @@ def readline(sock):
 def tcp(host, port, bot_command, user, options):      
     # spread out if in batch mode, to allow more random ordering on the server
     time.sleep(5.0 * random.random())
-
        
     # Start up the network connection
     sock = socket(AF_INET, SOCK_STREAM)
@@ -39,6 +38,9 @@ def tcp(host, port, bot_command, user, options):
         print( "failed to connect to " + host + " on port " + str(port) )
         return
             
+    # send greetz
+    sock.sendall("USER %s\n" % user)
+    
     # start bot
     try:
         bot = subprocess.Popen(bot_command,
@@ -49,30 +51,39 @@ def tcp(host, port, bot_command, user, options):
         print( 'your bot ('+str(bot_command)+') failed to start!' )
         return;
 
-    # send greetz and start the loop
-    sock.sendall("USER %s\n" % user)
     while sock:
+        end_reached = False
         # get input, send it to bot
         bot_input = ""
         while sock:
             line = readline(sock)
+            if not line: 
+                if end_reached:
+                    sock.close()
+                    sock = None
+                    break
+                continue # bad connection, keep on trying
+                
             print( line )
-            if not line: # bad connection, keep on trying
-                continue
-            if line.find("eliminated") > -1:
-                sock.close()  #bail out and hope for the next game
-                sock=None
-                break
+            #~ if line.find("eliminated") > -1:
+                #~ sock.close()  #bail out and hope for the next game
+                #~ sock=None
+                #~ break
             if line.startswith("INFO:"): # not meant for the bot
                 continue
             bot_input += line + "\n"
             if line.startswith("end"):
-                sock.close()
-                sock=None
-                break
+                end_reached = True                
+                #~ sock.close()
+                #~ sock = None
+                #~ return
             if line.startswith("ready"):
                 break
             if line.startswith("go"):
+                if end_reached:
+                    sock.close()
+                    sock = None
+                    return
                 break
             
         if not sock:
@@ -85,10 +96,10 @@ def tcp(host, port, bot_command, user, options):
         client_mess=""
         while 1:
             answer = bot.stdout.readline()
-
+            #~ print "ANSWER", answer
             if not answer:	break
-            if answer.startswith("go"):	break
             client_mess += answer 
+            if answer.startswith("go"):	break
         
         # if there's no orders, send at least an empty line
         if (client_mess==""):

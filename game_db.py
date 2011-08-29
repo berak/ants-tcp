@@ -14,7 +14,7 @@ class GameData():
 	id = 0		# number
 	date = None # time.asctime
 	map = None
-	players={}  # {name:rank}
+	players={}  # {name:(score,status)}
 
 
 class GameDB():

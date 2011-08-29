@@ -2,6 +2,7 @@
 
 import threading
 import socket
+import sys
 
 
 import tcpserver
@@ -34,20 +35,26 @@ def main():
 	tcp_port = 2081
 
 	tcp_opts = {
+		#~ 'verbose_log': sys.stderr,
+		'serial': False,
+		'verbose': False,
 		'turns':350,
-		'loadtime': 3000, 
-		'turntime': 2000,
+		'loadtime': 5000, 
+		'turntime': 5000,
 		'viewradius2': 77,
-		'spawnradius2': 1,
 		'attackradius2': 5,
-		'attack': 'power',
+		'spawnradius2': 1,
+		'attack': 'focus',
 		'food': 'symmetric',
-		# non-game args
-		'db_max_games': 100, #how many games should be kept on the webserver
+		
+		# non-ants args
+		'skill': 'jskills',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
+		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
+		'db_max_games': 100,	# how many games should be kept on the webserver
 	}
 
 	web_opts = {
-		'style': 'light',
+		'style': 'light', # or 'dark'
 		'host': socket.gethostname(),
 	}
 	

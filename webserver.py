@@ -32,7 +32,7 @@ a:hover{
 }
 body {
 	font-family:Calibri,Helvetica,Arial;
-	font-size:12pt;
+	font-size:9pt;
 	color:#111;
 }
 hr {
@@ -42,14 +42,14 @@ hr {
 table.tablesorter {
 	background-color: #CDCDCD;
 	font-family: Calibri,Helvetica,Arial;
-	font-size: 9pt;
+	font-size: 8pt;
 	margin: 10px 10px 15px 10px;
 	text-align:left;
 }
 table.tablesorter thead tr th tfoot  {
 	background-color:#E6EEEE;
 	border:1px solid #FFFFFF;
-	font-size:9pt;
+	font-size:8pt;
 	padding:4px 40px 4px 4px;
 	background-position:right center;
 	background-repeat:no-repeat;
@@ -132,7 +132,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         """
         
     def footer(self):
-        anum = int(1 + random.random() * 12)
+        anum = int(1 + random.random() * 11)
         apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
         
@@ -176,7 +176,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def game_line(self, g):
         html = "<tr><td><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
         for key, value in sorted(g.players.iteritems(), key=lambda (k,v): (v,k), reverse=True):
-            html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "'>"+str(key)+"</a> (" + str(value) + ") &nbsp;"
+            html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"
         html += "</td><td>" + str(g.date) + "</td>"
         html += "<td><a href='/map/" + str(g.map) + "' title='View the map'>" + str(g.map) + "</a></td>"
         html += "</tr>"
