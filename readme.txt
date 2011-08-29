@@ -17,9 +17,10 @@ the default trueskill impl is trueskill.py,
 if you got java installed, you'll want to use jskills.
 
 lots of things will need further tweaking:
-	should bots, that got eliminated/timeout be kept to the end? or releasesd as early as possible?
+	should bots, that got eliminated/timeout be kept to the end or released as early as possible?
 	currently, it uses no pairing at all,  just: create a game, gather players, start it.
-
+	zillions of threads, and not  a *single* lock ...
+	mcleo's source had a nice webcache for the http part
 
 
 this was the original PW code:

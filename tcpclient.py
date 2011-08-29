@@ -61,28 +61,24 @@ def tcp(host, port, bot_command, user, options):
                 if end_reached:
                     sock.close()
                     sock = None
-                    break
+                    bot.kill()
+                    return
                 continue # bad connection, keep on trying
                 
-            print( line )
-            #~ if line.find("eliminated") > -1:
-                #~ sock.close()  #bail out and hope for the next game
-                #~ sock=None
-                #~ break
+            print( line )            
             if line.startswith("INFO:"): # not meant for the bot
                 continue
+                
             bot_input += line + "\n"
             if line.startswith("end"):
                 end_reached = True                
-                #~ sock.close()
-                #~ sock = None
-                #~ return
             if line.startswith("ready"):
                 break
             if line.startswith("go"):
                 if end_reached:
                     sock.close()
                     sock = None
+                    bot.kill()
                     return
                 break
             
@@ -96,7 +92,6 @@ def tcp(host, port, bot_command, user, options):
         client_mess=""
         while 1:
             answer = bot.stdout.readline()
-            #~ print "ANSWER", answer
             if not answer:	break
             client_mess += answer 
             if answer.startswith("go"):	break

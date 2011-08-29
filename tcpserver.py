@@ -201,6 +201,10 @@ class TcpGame(threading.Thread):
         game_result = run_game(self.ants, self.bots, self.opts)
         
         log.info("saving game : " + str(self.id) + " turn " + str(self.ants.turn) )
+        try:
+            states = game_result["status"]
+        except: # keyerror
+            return # broken game
         scores = self.ants.get_scores()
         ranks = [sorted(set(scores), reverse=True).index(x) for x in scores]
         game_result['playernames'] = []
@@ -217,7 +221,6 @@ class TcpGame(threading.Thread):
         g.map = self.map_name
         g.date = asctime()
         plr = {}
-        states = game_result["status"]
         for i,p in enumerate(self.players):
             if p in self.db.players:
                 player = self.db.players[p]
