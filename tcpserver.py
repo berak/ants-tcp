@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#~ import select
+import select
 #~ import signal
 import socket
 import sys
@@ -243,7 +243,7 @@ class TcpGame(threading.Thread):
         print scores
         mr = 0
 
-        if sum(ranks) > 0:
+        if sum(ranks) > len(ranks)-1:
             log.debug( "starting trueskill : game " + str(self.id) )
             if self.opts['skill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
@@ -389,16 +389,27 @@ class TCPGameServer(object):
         self.next_game = self.create_game()
         
         while self.server:
-            sleep(0.005)
-            client, address = self.server.accept()
-            data = client.recv(4096).strip()
-            name = data.split()[1]
-            log.info('user %s connected: %d to game %d' % (name,client.fileno(),self.next_game.id))
-            # start game if enough players joined
-            if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
-                game = self.next_game
-                game.start()
+            try:
+                inputready,outputready,exceptready = select.select([self.server], [], [], 0.1)
+            except select.error, e:
+                log.exception(e)
+                break
+            except socket.error, e:
+                log.exception(e)
+                break
 
-                self.next_game = self.create_game()
+            for s in inputready:
+                if s == self.server:
+                    client, address = self.server.accept()
+                    data = client.recv(4096).strip()
+                    name = data.split()[1]
+                    log.info('user %s connected: %d to game %d' % (name,client.fileno(),self.next_game.id))
+                    # start game if enough players joined
+                    if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
+                        game = self.next_game
+                        game.start()
+
+                        self.next_game = self.create_game()
+            sleep(0.005)
                 
         self.shutdown()
