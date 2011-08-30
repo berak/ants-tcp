@@ -45,7 +45,7 @@ gamedatalog.addHandler(ch)
 BUFSIZ = 4096
 
 from math import ceil, sqrt
-from time import time
+from time import time,sleep
 import json
 import logging
 
@@ -69,7 +69,6 @@ class TcpBox(threading.Thread):
         self.start()
         
     def __del__(self):
-        #~ print "__del__", self
         self._close()
         
     def _readline(self):
@@ -113,9 +112,8 @@ class TcpBox(threading.Thread):
         self.sock = None
         
     def kill(self):
-        #~ print "Thread kill", self, self.sock
         try: 
-            ## you died of dysentry
+            ## you just died of dysentry
             self.write("end\nyou timed out.\n\n")
         except: pass
             
@@ -123,14 +121,13 @@ class TcpBox(threading.Thread):
         
 
     def write(self, str):
-        #~ print "Thread write", self,str
-        if self.sock == None:
+        try:
+            self.sock.sendall(str)
+        except Exception, e:
             log.warning("writing to invalid socket %s  game:%d" % (self.name,self.game_id) )
-            return False
-        self.sock.sendall(str)
+            pass
 
     def write_line(self, line):
-        #~ print "Thread write_line", self, line
         return self.write(line + "\n")
 
     def read_line(self, timeout=0):
@@ -143,15 +140,12 @@ class TcpBox(threading.Thread):
 
     ## dummies
     def release(self):
-        #~ print "Thread release", self
         self._close()
         
     def pause(self):
-        #~ print "Thread pause", self
         pass
 
     def resume(self):
-        #~ print "Thread resume", self
         pass
         
     def read_error(self, timeout=0):
@@ -167,7 +161,7 @@ from engine import run_game
 
     
 class TcpGame(threading.Thread):
-    def __init__( self, db, opts, map_name, nplayers ):
+    def __init__( self, db, opts, map_name, nplayers, game_data_lock ):
         threading.Thread.__init__(self)
         self.db = db
         self.id = db.latest
@@ -177,8 +171,14 @@ class TcpGame(threading.Thread):
         self.map_name = map_name
         self.nplayers = nplayers
         self.bots=[]
+        self.game_data_lock = game_data_lock
         self.ants = Ants(opts)
         
+    def __del__(self):
+        print "__del__", self.id, self
+        for b in self.bots:
+            b.kill()
+            
     def addplayer(self, name,sock):
         self.players.append(name)
         box = TcpBox(sock)
@@ -191,11 +191,6 @@ class TcpGame(threading.Thread):
         log.info( "run game %d %s %s" %(self.id,self.map_name,self.players) )
         for i,p in enumerate(self.bots):
             p.write( "INFO: game " + str(self.id) + " on map " + str(self.map_name) + " : " + str(self.players) + "\n" )
-            #~ plist = ""
-            #~ for j,q in enumerate(self.players):
-                #~ if j != i:
-                    #~ plist += " " + q
-            #~ p.write( "INFO: your opponents are: " + plist + "\n" )
         
         # finally, THE GAME !
         game_result = run_game(self.ants, self.bots, self.opts)
@@ -216,6 +211,8 @@ class TcpGame(threading.Thread):
         f.close()
         
         # add to game db data shared with the webserver
+        self.game_data_lock.acquire()
+        
         g = GameData()
         g.id = self.id
         g.map = self.map_name
@@ -237,12 +234,30 @@ class TcpGame(threading.Thread):
         if len(self.db.games) > int(self.opts['db_max_games']):
             k = self.db.games.keys().pop(0)
             del(self.db.games[k])
+            
+        self.game_data_lock.release()
 
         # update rankings
-        if self.opts['skill'] == 'jskills':
-            self.calk_ranks_js( self.players, ranks )
-        else : # default
-            self.calc_ranks_py( self.players, ranks )
+        print self.players
+        print ranks
+        print scores
+        mr = 0
+
+        ## trueskill can't handle equal ranks
+        #~ for r in ranks:
+            #~ if r > mr:
+                #~ mr = r
+        #~ if mr == len(ranks)-1:
+        if sum(ranks) > 1:
+            log.debug( "starting trueskill : game " + str(self.id) )
+            if self.opts['skill'] == 'jskills':
+                self.calk_ranks_js( self.players, ranks )
+            else : # default
+                self.calc_ranks_py( self.players, ranks )
+        else:
+            log.error( "RANKING ERROR game "+str(self.id)+" : invalid rank " + str(ranks) )            
+            
+        log.info("saved game : " + str(self.id) + " turn " + str(self.ants.turn) )
             
         
         
@@ -255,56 +270,78 @@ class TcpGame(threading.Thread):
                 self.skill = skill
                 self.rank = rank
 
+        self.game_data_lock.acquire()
         ts_players = []
         for i, p in enumerate(players):
             pdata = self.db.players[p]
             ts_players.append( TrueSkillPlayer(i, (pdata.mu,pdata.sigma), ranks[i] ) )
-            
-        trueskill.AdjustPlayers(ts_players)
+        self.game_data_lock.release()
+        try:
+            trueskill.AdjustPlayers(ts_players)
+        except Exception, e:
+            log.error(e)
+            return
         
+        self.game_data_lock.acquire()
         for i, p in enumerate(players):
             pdata = self.db.players[p]
             pdata.mu    = ts_players[i].skill[0]
             pdata.sigma = ts_players[i].skill[1]
             pdata.skill = pdata.mu - pdata.sigma * 3
+        self.game_data_lock.release()
 
 
     def calk_ranks_js( self, players, ranks ):
-        #~ classpath = "{0}/JSkills_0.9.0.jar:{0}".format(
-                #~ os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                    #~ "jskills"))
         classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                
+        self.game_data_lock.acquire()
+        lines = []
         for i,p in enumerate(players):
             pdata = self.db.players[p]
-            tsupdater.stdin.write("P %s %d %f %f\n" % (p, ranks[i], pdata.mu, pdata.sigma))
+            lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata.mu, pdata.sigma))
+        self.game_data_lock.release()
+        
+        for i,p in enumerate(players):
+            tsupdater.stdin.write(lines[i])
+        
         tsupdater.stdin.write("C\n")
         tsupdater.stdin.flush()
         tsupdater.wait()
-        for player in players:
+        
+        results = []
+        for i,p in enumerate(players):
             # this might seem like a fragile way to handle the output of TSUpdate
             # but it is meant as a double check that we are getting good and
             # complete data back
-            result = tsupdater.stdout.readline().split()
-            if str(player) != result[0]:
+            results.append( tsupdater.stdout.readline().split() )
+            
+        self.game_data_lock.acquire()
+        for i,p in enumerate(players):
+            result = results[i]
+            if str(p) != result[0]:
                 log.error("Unexpected player name in TSUpdate result. %s != %s"
                         % (player, result[0]))
-                return False
-            pdata = self.db.players[player]
+                break
+            pdata = self.db.players[p]
+            ## hmm, java returns floats formatted like: 1,03 here, due to my locale(german) ?
             pdata.mu    = float(result[1].replace(",","."))
             pdata.sigma = float(result[2].replace(",","."))
             pdata.skill = pdata.mu - pdata.sigma * 3
+        self.game_data_lock.release()
 
 class TCPGameServer(object):        
-    def __init__(self, opts, game_db, port=1234, backlog=5):
+    def __init__(self, opts, game_db, port, game_data_lock):
         self.opts = opts
         self.db = game_db
         self.clients = []
+        self.games = []
+        self.game_data_lock = game_data_lock
         
         # tcp binding options
         self.port = port
-        self.backlog = backlog
+        self.backlog = 5
         
         self.bind()
         
@@ -338,26 +375,26 @@ class TCPGameServer(object):
     def create_game(self):
         # we might crash..
         if self.db.latest % 10 == 1:
-            game_db.save(self.db)
-            
-        # play it again, sam.
-        self.db.latest += 1
+            self.game_data_lock.acquire()
+            game_db.save(self.db)            
+            self.game_data_lock.release()
         
         # get a map and create antsgame
+        self.db.latest += 1
         map_name, map_data, nplayers = self.select_map()
         opts = self.opts
         opts['map'] = map_data
        
         log.info( "game %d %s needs %d players" %(self.db.latest,map_name,nplayers) )
-        return TcpGame( self.db, opts, map_name, nplayers )
+        return TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock )
                 
                 
     def serve(self):
-
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
         
         while self.server:
+            sleep(0.005)
             client, address = self.server.accept()
             data = client.recv(4096).strip()
             name = data.split()[1]

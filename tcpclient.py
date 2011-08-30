@@ -7,8 +7,20 @@ import re
 import string
 import random
 import subprocess
-
 from socket import socket, AF_INET, SOCK_STREAM
+
+
+USAGE="""
+    tcpclient.py   host_or_ip  port  botpath  player_nick  [num_rounds]
+    
+    if running on windows or if the botpath contains spaces,
+    you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
+    
+    player_nick may only contain ascii_letters, '_', and numbers
+    
+"""
+
+
 
 def readline(sock):
   s=""
@@ -111,17 +123,8 @@ def tcp(host, port, bot_command, user, options):
                       
 
 def main():
-    usage="""
-        tcpclient.py   host_or_ip  port  botpath  player_nick  [num_rounds]
-        
-        if running on windows or if the botpath contains spaces,
-        you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
-        
-        player_nick may only contain ascii_letters, '_', and numbers
-        
-    """
     if len(sys.argv) < 5:
-        print usage
+        print USAGE
         return
         
     host=sys.argv[1]

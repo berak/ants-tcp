@@ -1,8 +1,8 @@
 
-a complete rewrite of the ants-tcp server (in python).
+a complete rewrite of the ants-tcp server (2.7 < python < 3).
 
-this time it's creating a list of tcp-sandboxes and passes that to (hacked) engine.py
-
+this time i hacked engine.py to take a list of tcp-sandboxes,
+	needs multithreading now, but has much better and faster gameplay that way.
 
 start it by (editing and) running main.py
 
@@ -14,15 +14,17 @@ current ports are:
 
 
 the default trueskill impl is trueskill.py, 
-if you got java installed, you'll want to use jskills.
+if you also got java installed, you'll want to use jskills.
 
+i'm shure, this contains bugs...
 lots of things will need further tweaking:
 	should bots, that got eliminated/timeout be kept to the end or released as early as possible?
 	currently, it uses no pairing at all,  just: create a game, gather players, start it.
 	zillions of threads, and not  a *single* lock ...
 	mcleo's source had a nice webcache for the http part
-
-
-this was the original PW code:
+	maybe it should look at some system resources, before blindly starting a new game / create more threads
+	from a bot's pov, most games end with 'eliminated'. the engine's output in that situation is kinda messy, since the game is still running(without you). also, if you timeout, you'll receive no notification from the engine, had to put a special case into TcpBot for that.
+	
+finally, this was the original PW code:
 	'https://github.com/McLeopold/TCPServer', 
 	*link to dhartmei's c-src

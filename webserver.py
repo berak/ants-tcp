@@ -226,6 +226,23 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
 
         
+    def serve_settings(self, match):
+        from trueskill import INITIAL_MU,INITIAL_SIGMA
+        html = self.header("Settings")
+        html += "<table>"
+        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("games",len(self.server.db.games))
+        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("players",len(self.server.db.players))
+        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ('########','########')
+        for k,v in self.server.opts.iteritems():
+            if k=='map': continue
+            html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
+        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial mu",INITIAL_MU)
+        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial sigma",INITIAL_SIGMA)
+        html += "</table>"
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
+        
     def serve_ranking(self, match):
         html = self.header("Rankings")
         html += self.rank_head()
@@ -322,6 +339,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
             
         for regex, func in (
+                ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),
                 ('^\/map/(.*)', self.serve_map),
                 ('^\/player\/(.*)', self.serve_player),

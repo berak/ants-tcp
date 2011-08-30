@@ -192,7 +192,7 @@ def run_game(game, bots, options):
                                     output_logs[b].write('\n'.join(valid)+'\n')
                                     output_logs[b].flush()
                         if ignored:
-                            for inv in invalid:
+                            for inv in ignored:
                                 bots[b].write('INFO: ignored ' + str(inv) +'\n')
                             if error_logs and error_logs[b]:
                                 error_logs[b].write('turn %4d bot %s ignored actions:\n' % (turn, b))
