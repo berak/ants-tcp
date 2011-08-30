@@ -243,12 +243,7 @@ class TcpGame(threading.Thread):
         print scores
         mr = 0
 
-        ## trueskill can't handle equal ranks
-        #~ for r in ranks:
-            #~ if r > mr:
-                #~ mr = r
-        #~ if mr == len(ranks)-1:
-        if sum(ranks) > 1:
+        if sum(ranks) > len(ranks):
             log.debug( "starting trueskill : game " + str(self.id) )
             if self.opts['skill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
