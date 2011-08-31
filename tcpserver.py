@@ -185,9 +185,10 @@ class TcpGame(threading.Thread):
         return len(self.bots)
 
     def run(self):
+        starttime = time()
         log.info( "run game %d %s %s" % (self.id,self.map_name,self.players) )
         for i,p in enumerate(self.bots):
-            p.write( "INFO: game " + str(self.id) + " on map " + str(self.map_name) + " : " + str(self.players) + "\n" )
+            p.write( "INFO: game " + str(self.id) + " " + str(self.map_name) + " : " + str(self.players) + "\n" )
         
         # finally, THE GAME !
         game_result = run_game(self.ants, self.bots, self.opts)
@@ -198,6 +199,8 @@ class TcpGame(threading.Thread):
         except: # keyerror
             log.error("broken game %d: %s" % (self.id,game_result) )
             return
+            
+        # save replay, add playernames to it
         scores = self.ants.get_scores()
         ranks = [sorted(set(scores), reverse=True).index(x) for x in scores]
         game_result['playernames'] = []
@@ -243,8 +246,10 @@ class TcpGame(threading.Thread):
                 self.calc_ranks_py( self.players, ranks )
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
-            
-        log.info("saved game : " + str(self.id) + " turn " + str(self.ants.turn) )
+        ds = time() - starttime
+        mins = int(ds / 60)
+        secs = ds - mins*60
+        log.info("saved game %d : %d turns %dm %2.2fs" % (self.id,self.ants.turn,mins,secs) )
         log.info("players: %s" % self.players)
         log.info("ranks  : %s" % ranks)
         log.info("scores : %s" % scores)

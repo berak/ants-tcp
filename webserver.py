@@ -232,17 +232,11 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         
     def serve_settings(self, match):
-        #~ from trueskill import INITIAL_MU,INITIAL_SIGMA
         html = self.header("Settings")
         html += "<table>"
-        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("games",len(self.server.db.games))
-        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("players",len(self.server.db.players))
-        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ('########','########')
         for k,v in self.server.opts.iteritems():
             if k=='map': continue
             html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
-        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial mu",INITIAL_MU)
-        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial sigma",INITIAL_SIGMA)
         html += "</table>"
         html += self.footer()
         html += "</body></html>"
@@ -285,39 +279,25 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         f = open(fname,"rb")
         m = f.read()
         f.close()
-        if 0:           
-            result = """<div id="map_div"><div id="map_center">
-                <div id="map_title">cavern map with rotational symmetry</div>
-                <canvas id="map" width="600" height="400" />
-                <!--[if lt IE 9]><script type="text/javascript">
-                var ready = false;
-                document.getElementById('map_center').removeChild(document.getElementById('map'));
-                InsertCanvasObject("map", 400, 400, "/static/", function() { ready = true; });
-                </script><![endif]-->
-            </div></div>"""
-        else:
-            result = self.header(mapname) + style + "<table border=0>\r\n"
-            for line in m.split('\n'):
-                line = line.strip().lower()
-
-                # ignore blank lines and comments
-                if not line or line[0] == '#':
-                    continue
-
-                key, value = line.split(' ')
-                if key == 'm':
-                    result +="<tr>"
-                    for pix in value:
-                        if pix=='a': c='A'
-                        if pix=='b': c='B'
-                        if pix=='c': c='C'
-                        if pix=='d': c='D'
-                        if pix=='.': c='E'
-                        if pix=='*': c='F'
-                        if pix=='%': c='G'
-                        result +="<td class='"+c+"'/>"
-                    result +="<tr>"
-            result += "</table>" + self.footer()
+        result = self.header(mapname) + style + "<table border=0>\r\n"
+        for line in m.split('\n'):
+            line = line.strip().lower()
+            if not line or line[0] == '#':
+                continue
+            key, value = line.split(' ')
+            if key == 'm':
+                result +="<tr>"
+                for pix in value:
+                    if pix=='a': c='A'
+                    if pix=='b': c='B'
+                    if pix=='c': c='C'
+                    if pix=='d': c='D'
+                    if pix=='.': c='E'
+                    if pix=='*': c='F'
+                    if pix=='%': c='G'
+                    result +="<td class='"+c+"'/>"
+                result +="<tr>"
+        result += "</table>" + self.footer()
             
         self.wfile.write(result)
             

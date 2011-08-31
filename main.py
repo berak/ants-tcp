@@ -41,7 +41,7 @@ def main():
 		#~ 'verbose_log': sys.stderr,
 		'serial': False,
 		'verbose': False,
-		'turns':350,
+		'turns':500,
 		'loadtime': 5000, 
 		'turntime': 5000,
 		'viewradius2': 77,
