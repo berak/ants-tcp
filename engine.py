@@ -228,12 +228,11 @@ def run_game(game, bots, options):
                     verbose_log.write('turn %4d bot %s eliminated\n' % (turn, b))
                 if bot_status[b] == 'survived': # could be invalid move
                     bot_status[b] = 'eliminated'
-                score_line ='score %s\n' % ' '.join([str(s) for s in game.get_scores(b)])
-                status_line = 'status %s\n' % ' '.join(map(str, game.order_for_player(b, bot_status)))
-                end_line = 'end\nplayers %s\n' % len(bots) + score_line + status_line
-                state = end_line + game.get_player_state(b) + 'go\n'
-                #~ print "ELIMINATED", b, bots[b].name, bot_status[b], " game:" , bots[b].game_id, "turn:",turn, "sock:",bots[b].sock
-                bots[b].write( "INFO: ELIMINATED " + bot_status[b] + "\n")
+                #~ score_line ='score %s\n' % ' '.join([str(s) for s in game.get_scores(b)])
+                #~ status_line = 'status %s\n' % ' '.join(map(str, game.order_for_player(b, bot_status)))
+                #~ end_line = 'end\nplayers %s\n' % len(bots) + score_line + status_line
+                #~ state = end_line + game.get_player_state(b) + 'go\n'
+                state = 'end\ngame ' + str(bots[b].game_id) + ": " + str(bot_status[b]) + " score: " + str(game.get_scores(b)[0]) + " turn: " + str(turn) + "\ngo\n"
                 bots[b].write(state)
                 if input_logs and input_logs[b]:
                     input_logs[b].write(state)
@@ -280,11 +279,12 @@ def run_game(game, bots, options):
             verbose_log.write(status_line)
             verbose_log.flush()
         for b, bot in enumerate(bots):
-            if game.is_alive(b):
+            if (game.is_alive(b)) and (bots[b].sock!=None):
                 #~ score_line ='score %s\n' % ' '.join([str(s) for s in game.get_scores(b)])
                 #~ status_line = 'status %s\n' % ' '.join(map(str, game.order_for_player(b, bot_status)))
                 #~ end_line = 'end\nplayers %s\n' % len(bots) + score_line + status_line
-                state = end_line + game.get_player_state(b) + 'go\n'
+                state = 'end\ngame ' + str(bots[b].game_id) + ": " + str(bot_status[b]) + " score: " + str(game.get_scores(b)[0]) + " turn: " + str(turn) + "\ngo\n"
+                #~ state = end_line + game.get_player_state(b) + 'go\n'
                 bot.write(state)
                 if input_logs and input_logs[b]:
                     input_logs[b].write(state)

@@ -201,8 +201,10 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header("latest games on " + str(self.server.opts['host']) )
         html += self.game_head()
         html += "<tbody>"
+        self.server.game_data_lock.acquire()
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
             html += self.game_line(g)
+        self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
         html += "</body></html>"
@@ -214,6 +216,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"
+        self.server.game_data_lock.acquire()
         html += self.rank_line( self.server.db.players[player] )
         html += "</tbody></table>"
         html += self.game_head()
@@ -221,6 +224,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
             if player in g.players:
                 html += self.game_line(g)
+        self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
         html += "</body></html>"
@@ -249,9 +253,12 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.rank_head()
         html += "<tbody>"
         
+        self.server.game_data_lock.acquire()
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
         pz = self.server.db.players.items()
+        self.server.game_data_lock.release()
+        
         pz.sort(by_skill)
         for n,p in pz:
             html += self.rank_line( p )
@@ -274,7 +281,7 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             </style>
             """
         mapname = match.group(0).split('/')[2]
-        fname = os.getcwd() + "/maps/symmetric_maps/" + mapname 
+        fname = os.getcwd() + "/maps/" + mapname 
         f = open(fname,"rb")
         m = f.read()
         f.close()

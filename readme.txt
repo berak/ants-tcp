@@ -6,12 +6,6 @@ this time i hacked engine.py to take a list of tcp-sandboxes,
 
 start it by (editing and) running main.py
 
-current ports are:
-	web_port = 2080
-	tcp_port = 2081
-	
-	remember to adjust your firewall.
-
 
 the default trueskill impl is trueskill.py, 
 if you also got java installed, you'll want to use jskills.
@@ -20,7 +14,6 @@ i'm shure, this contains bugs...
 lots of things will need further tweaking:
 	should bots, that got eliminated/timeout be kept to the end or released as early as possible?
 	currently, it uses no pairing at all,  just: create a game, gather players, start it.
-	zillions of threads, and not  a *single* lock ...
 	mcleo's source had a nice webcache for the http part
 	maybe it should look at some system resources, before blindly starting a new game / create more threads
 	from a bot's pov, most games end with 'eliminated'. the engine's output in that situation is kinda messy, since the game is still running(without you). also, if you timeout, you'll receive no notification from the engine, had to put a special case into TcpBot for that.

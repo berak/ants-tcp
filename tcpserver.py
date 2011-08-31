@@ -33,13 +33,13 @@ log.setLevel(logging.INFO)
 # add ch to logger
 log.addHandler(ch)
 
-gamelog = logging.getLogger('game')
-gamelog.setLevel(logging.DEBUG)
-gamelog.addHandler(ch)
+#~ gamelog = logging.getLogger('game')
+#~ gamelog.setLevel(logging.DEBUG)
+#~ gamelog.addHandler(ch)
 
-gamedatalog = logging.getLogger('gamedata')
-gamedatalog.setLevel(logging.DEBUG)
-gamedatalog.addHandler(ch)
+#~ gamedatalog = logging.getLogger('gamedata')
+#~ gamedatalog.setLevel(logging.DEBUG)
+#~ gamedatalog.addHandler(ch)
 
 
 BUFSIZ = 4096
@@ -47,9 +47,9 @@ BUFSIZ = 4096
 from math import ceil, sqrt
 from time import time,sleep
 import json
-import logging
+#~ import logging
 
-log = logging.getLogger("game.Ants")
+#~ log = logging.getLogger("game.Ants")
 
 #
 ## sandbox impl
@@ -172,7 +172,7 @@ class TcpGame(threading.Thread):
         self.ants = Ants(opts)
         
     def __del__(self):
-        print "__del__", self.id, self
+        #~ print "__del__", self.id, self
         for b in self.bots:
             b.kill()
             
@@ -192,11 +192,12 @@ class TcpGame(threading.Thread):
         # finally, THE GAME !
         game_result = run_game(self.ants, self.bots, self.opts)
         
-        log.info("saving game : " + str(self.id) + " turn " + str(self.ants.turn) )
+        #~ log.info("saving game : " + str(self.id) + " turn " + str(self.ants.turn) )
         try:
             states = game_result["status"]
         except: # keyerror
-            return # broken game
+            log.error("broken game %d: %s" % (self.id,game_result) )
+            return
         scores = self.ants.get_scores()
         ranks = [sorted(set(scores), reverse=True).index(x) for x in scores]
         game_result['playernames'] = []
@@ -235,12 +236,7 @@ class TcpGame(threading.Thread):
         self.game_data_lock.release()
 
         # update rankings
-        print self.players
-        print ranks
-        print scores
-        mr = 0
-
-        if sum(ranks) > len(ranks)-1:
+        if sum(ranks) >= len(ranks)-1:
             if self.opts['skill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
             else : # default
@@ -249,6 +245,9 @@ class TcpGame(threading.Thread):
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
             
         log.info("saved game : " + str(self.id) + " turn " + str(self.ants.turn) )
+        log.info("players: %s" % self.players)
+        log.info("ranks  : %s" % ranks)
+        log.info("scores : %s" % scores)
             
         
         
@@ -311,6 +310,7 @@ class TcpGame(threading.Thread):
         if (len(results)!=len(players)) or (len(results[0])<3):
             log.error("invalid jskill result " + str(results))
             return
+            
         ## loop broken up to mimimize locking
         self.game_data_lock.acquire()
         for i,p in enumerate(players):
@@ -409,7 +409,16 @@ class TCPGameServer(object):
                     client, address = self.server.accept()
                     data = client.recv(4096).strip()
                     name = data.split()[1]
-                    log.info('user %s connected: %d/%d to game %d' % (name,len(self.next_game.bots),self.next_game.nplayers,self.next_game.id))
+                    if name in self.next_game.players:
+                        log.warning('user %s tried to connect twice: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
+                        try:                       
+                            client.sendall("INFO: you are already queued for game %d\n" % self.next_game.id )
+                            client.close()
+                            client = None
+                        except:
+                            pass
+                        continue
+                    log.info('user %s connected: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
                     # start game if enough players joined
                     if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
                         game = self.next_game
@@ -421,7 +430,7 @@ class TCPGameServer(object):
             # remove bots from next_game that died between connect and the start of the game
             for i, b in enumerate(self.next_game.bots):
                 if (not b.sock) or (not b.is_alive):
-                    #~ print "REMOVE ", b.name, "from next_game:", self.next_game.id
+                    log.info( "removed %s from next_game:%d" % (b.name, self.next_game.id) )
                     del( self.next_game.bots[i] )
                     del( self.next_game.players[i] )
             sleep(0.005)
