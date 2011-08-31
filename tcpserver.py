@@ -90,9 +90,8 @@ class TcpBox(threading.Thread):
                 else:
                     line += c
             if line:
-                self.inp_lines.append(line)
-                
-        print "stopped", self.name, "game:", self.game_id
+                self.inp_lines.append(line)                
+        #~ print "stopped", self.name, "game:", self.game_id
         
     ## next 2 are commented out to avoid interference with the thread interface
     #~ @property
@@ -242,13 +241,12 @@ class TcpGame(threading.Thread):
         mr = 0
 
         if sum(ranks) > len(ranks)-1:
-            log.debug( "starting trueskill : game " + str(self.id) )
             if self.opts['skill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
             else : # default
                 self.calc_ranks_py( self.players, ranks )
         else:
-            log.error( "RANKING ERROR game "+str(self.id)+" : invalid rank " + str(ranks) )            
+            log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
             
         log.info("saved game : " + str(self.id) + " turn " + str(self.ants.turn) )
             
@@ -285,6 +283,7 @@ class TcpGame(threading.Thread):
 
 
     def calk_ranks_js( self, players, ranks ):
+        ## java needs ';' as separator for win23, ':' for nix&mac
         classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -312,12 +311,12 @@ class TcpGame(threading.Thread):
         if (len(results)!=len(players)) or (len(results[0])<3):
             log.error("invalid jskill result " + str(results))
             return
+        ## loop broken up to mimimize locking
         self.game_data_lock.acquire()
         for i,p in enumerate(players):
             result = results[i]
             if str(p) != result[0]:
-                log.error("Unexpected player name in TSUpdate result. %s != %s"
-                        % (player, result[0]))
+                log.error("Unexpected player name in TSUpdate result. %s != %s" % (player, result[0]))
                 break
             pdata = self.db.players[p]
             ## hmm, java returns floats formatted like: 1,03 here, due to my locale(german) ?
@@ -332,7 +331,14 @@ class TCPGameServer(object):
         self.db = game_db
         self.clients = []
         self.games = []
-        self.game_data_lock = game_data_lock
+        self.game_data_lock = game_data_lock        
+
+        # read in the available mapfiles
+        self.map_files = []
+        for root,dirs,filenames in os.walk("maps"):
+            for filename in filenames:
+                self.map_files.append(filename)
+        #~ print  self.map_files
         
         # tcp binding options
         self.port = port
@@ -354,9 +360,9 @@ class TCPGameServer(object):
         self.server=None
 
     def select_map(self):
-        id = 1 + int(11 * random.random())
-        base_name = 'symmetric_'+str(id)+'.map'
-        map_name = os.path.join( 'maps', 'symmetric_maps', base_name)
+        id = int(len(self.map_files) * random.random())
+        base_name = self.map_files[id]
+        map_name = os.path.join( 'maps', base_name)
         data = ""
         f = open(map_name, 'r')
         for line in f:
@@ -403,7 +409,7 @@ class TCPGameServer(object):
                     client, address = self.server.accept()
                     data = client.recv(4096).strip()
                     name = data.split()[1]
-                    log.info('user %s connected: %d to game %d' % (name,client.fileno(),self.next_game.id))
+                    log.info('user %s connected: %d/%d to game %d' % (name,len(self.next_game.bots),self.next_game.nplayers,self.next_game.id))
                     # start game if enough players joined
                     if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
                         game = self.next_game
@@ -412,9 +418,10 @@ class TCPGameServer(object):
 
                         self.next_game = self.create_game()
                         
-            ## remove dead bots from next_game
+            # remove bots from next_game that died between connect and the start of the game
             for i, b in enumerate(self.next_game.bots):
                 if (not b.sock) or (not b.is_alive):
+                    #~ print "REMOVE ", b.name, "from next_game:", self.next_game.id
                     del( self.next_game.bots[i] )
                     del( self.next_game.players[i] )
             sleep(0.005)
