@@ -111,7 +111,7 @@ class TcpBox(threading.Thread):
         
     def kill(self):
         try: 
-            ## you just died of dysentry
+            ## you died of dysentry
             self.write("end\nyou timed out.\n\n")
         except: pass
             
@@ -122,7 +122,7 @@ class TcpBox(threading.Thread):
         try:
             self.sock.sendall(str)
         except Exception, e:
-            log.warning("writing to invalid socket %s  game:%d [%s]" % (self.name,self.game_id,str.replace('\n','')) )
+            #~ log.warning("writing to invalid socket %s  game:%d [%s]" % (self.name,self.game_id,str.replace('\n','')) )
             pass
 
     def write_line(self, line):
@@ -411,6 +411,12 @@ class TCPGameServer(object):
                         game = None
 
                         self.next_game = self.create_game()
+                        
+            ## remove dead bots from next_game
+            for i, b in enumerate(self.next_game.bots):
+                if (not b.sock) or (not b.is_alive):
+                    del( self.next_game.bots[i] )
+                    del( self.next_game.players[i] )
             sleep(0.005)
                 
         self.shutdown()
