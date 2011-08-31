@@ -70,32 +70,30 @@ class TcpBox(threading.Thread):
         
     def __del__(self):
         self._close()
-        
-    def _readline(self):
-        s=""
-        while(self.sock):
-            try:
-                c = self.sock.recv(1)
-            except Exception, e:
-                #~ print e
-                break                
-            if ( not c ):
-                break
-            elif ( c=='\r' ):
-                continue
-            elif ( c=='\n' ):
-                break
-            else:
-                s += c
-        return s
-        
+                
     def run( self ):
         while self.sock:
-            line = self._readline() 
-            ## an invalid line here can be the end of a message or the death of the other end. don't bailout, since we can't decide 
+            line=""
+            while(self.sock):
+                try:
+                    c = self.sock.recv(1)
+                except Exception, e:
+                    self._close()
+                    #~ print e
+                    break                
+                if ( not c ):
+                    break
+                elif ( c=='\r' ):
+                    continue
+                elif ( c=='\n' ):
+                    break
+                else:
+                    line += c
             if line:
                 self.inp_lines.append(line)
-
+                
+        print "stopped", self.name, "game:", self.game_id
+        
     ## next 2 are commented out to avoid interference with the thread interface
     #~ @property
     #~ def is_alive(self):
@@ -124,7 +122,7 @@ class TcpBox(threading.Thread):
         try:
             self.sock.sendall(str)
         except Exception, e:
-            log.warning("writing to invalid socket %s  game:%d" % (self.name,self.game_id) )
+            log.warning("writing to invalid socket %s  game:%d [%s]" % (self.name,self.game_id,str.replace('\n','')) )
             pass
 
     def write_line(self, line):
@@ -188,7 +186,7 @@ class TcpGame(threading.Thread):
         return len(self.bots)
 
     def run(self):
-        log.info( "run game %d %s %s" %(self.id,self.map_name,self.players) )
+        log.info( "run game %d %s %s" % (self.id,self.map_name,self.players) )
         for i,p in enumerate(self.bots):
             p.write( "INFO: game " + str(self.id) + " on map " + str(self.map_name) + " : " + str(self.players) + "\n" )
         
@@ -311,7 +309,9 @@ class TcpGame(threading.Thread):
             # but it is meant as a double check that we are getting good and
             # complete data back
             results.append( tsupdater.stdout.readline().split() )
-            
+        if (len(results)!=len(players)) or (len(results[0])<3):
+            log.error("invalid jskill result " + str(results))
+            return
         self.game_data_lock.acquire()
         for i,p in enumerate(players):
             result = results[i]
@@ -408,6 +408,7 @@ class TCPGameServer(object):
                     if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
                         game = self.next_game
                         game.start()
+                        game = None
 
                         self.next_game = self.create_game()
             sleep(0.005)

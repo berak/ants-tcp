@@ -132,8 +132,9 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         """
         
     def footer(self):
-        anum = int(1 + random.random() * 11)
-        apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
+        #~ anum = int(1 + random.random() * 11)
+        #~ apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
+        apic="^^^"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
         
     def serve_visualizer(self, match):
@@ -227,17 +228,17 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         
     def serve_settings(self, match):
-        from trueskill import INITIAL_MU,INITIAL_SIGMA
+        #~ from trueskill import INITIAL_MU,INITIAL_SIGMA
         html = self.header("Settings")
         html += "<table>"
-        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("games",len(self.server.db.games))
-        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("players",len(self.server.db.players))
-        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ('########','########')
+        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("games",len(self.server.db.games))
+        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("players",len(self.server.db.players))
+        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ('########','########')
         for k,v in self.server.opts.iteritems():
             if k=='map': continue
             html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
-        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial mu",INITIAL_MU)
-        html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial sigma",INITIAL_SIGMA)
+        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial mu",INITIAL_MU)
+        #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % ("initial sigma",INITIAL_SIGMA)
         html += "</table>"
         html += self.footer()
         html += "</body></html>"
@@ -353,11 +354,6 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_error(404, 'File Not Found: %s' % self.path)
 
 
-#~ if __name__ == '__main__':
-    #~ PORT = 2080    
-    #~ httpd = AntsGameServer(('', PORT), AntsGameHandler)
-    #~ log.info('serving at port %d' % PORT)
-    #~ httpd.serve_forever()
 
 
  
