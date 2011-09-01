@@ -103,14 +103,14 @@ table.tablesorter tbody td tfoot {
 }
 
 
-class AntsGameServer(HTTPServer):
+class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
         self.db = None
         self.opts = None
         HTTPServer.__init__(self, *args)
 
         
-class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def __init__(self, *args):
         SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, *args)
     
@@ -172,12 +172,13 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def game_head(self):
         return """<table id='myTable' class='tablesorter' width='100%'>
-            <thead><tr><th>Game </th><th>Players</th><th>Date</th><th>Map</th></tr></thead>"""
+            <thead><tr><th>Game </th><th>Players</th><th>Turns</th><th>Date</th><th>Map</th></tr></thead>"""
             
     def game_line(self, g):
         html = "<tr><td><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
         for key, value in sorted(g.players.iteritems(), key=lambda (k,v): (v,k), reverse=True):
             html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"
+        html += "</td><td>" + str(g.turns) + "</td>"
         html += "</td><td>" + str(g.date) + "</td>"
         html += "<td><a href='/map/" + str(g.map) + "' title='View the map'>" + str(g.map) + "</a></td>"
         html += "</tr>"
@@ -185,10 +186,11 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def rank_head(self):
         return """<table id='plTable' class='tablesorter' width='100%'>
-            <thead><tr><th>Player</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th></tr></thead>"""
+            <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th></tr></thead>"""
             
     def rank_line( self, p ):
         html  = "<tr><td><a href='/player/" + str(p.name) + "'>"+str(p.name)+"</a></td>" 
+        html += "<td>" + str(p.rank) + "</td>"
         html += "<td>" + str(p.skill) + "</td>"
         html += "<td>" + str(p.mu)    + "</td>"
         html += "<td>" + str(p.sigma) + "</td>"
@@ -248,12 +250,12 @@ class AntsGameHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<tbody>"
         
         self.server.game_data_lock.acquire()
-        def by_skill( a,b ):
-            return cmp(b[1].skill, a[1].skill)            
         pz = self.server.db.players.items()
         self.server.game_data_lock.release()
         
-        pz.sort(by_skill)
+        def by_skill( a,b ):
+            return cmp(b[1].skill, a[1].skill)            
+        pz.sort(by_skill)        
         for n,p in pz:
             html += self.rank_line( p )
             

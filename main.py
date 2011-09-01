@@ -18,10 +18,11 @@ class TcpThread(threading.Thread):
 	def run(self):
 		self.server.serve()
 
+
 class WebThread(threading.Thread):
 	def __init__(self, opts, db, port, game_data_lock):
 		threading.Thread.__init__(self)
-		self.server = webserver.AntsGameServer(('', port), webserver.AntsGameHandler)
+		self.server = webserver.AntsHttpServer(('', port), webserver.AntsHttpHandler)
 		self.server.db = db
 		self.server.opts = opts
 		self.server.game_data_lock = game_data_lock
@@ -38,7 +39,6 @@ def main():
 	# all opts in one dict, so we can show them on http
 	opts = {
 		## tcp opts:
-		#~ 'verbose_log': sys.stderr,
 		'serial': False,
 		'verbose': False,
 		'turns':500,

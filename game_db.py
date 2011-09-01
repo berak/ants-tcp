@@ -9,11 +9,13 @@ class PlayerData():
 	mu = 50.0
 	sigma = 3.0
 	ngames = 0
+	rank = 0
 
 class GameData():
 	id = 0		# number
 	date = None # time.asctime
 	map = None
+	turns = 0
 	players={}  # {name:(score,status)}
 
 

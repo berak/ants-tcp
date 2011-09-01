@@ -65,7 +65,6 @@ class TcpBox(threading.Thread):
         self.game_id=0
         
         # start thread
-        #~ threading.Thread.start(self)
         self.start()
         
     def __del__(self):
@@ -91,7 +90,6 @@ class TcpBox(threading.Thread):
                     line += c
             if line:
                 self.inp_lines.append(line)                
-        #~ print "stopped", self.name, "game:", self.game_id
         
     ## next 2 are commented out to avoid interference with the thread interface
     #~ @property
@@ -217,6 +215,7 @@ class TcpGame(threading.Thread):
         g = GameData()
         g.id = self.id
         g.map = self.map_name
+        g.turns = self.ants.turn
         g.date = asctime()
         plr = {}
         for i,p in enumerate(self.players):
@@ -246,6 +245,19 @@ class TcpGame(threading.Thread):
                 self.calc_ranks_py( self.players, ranks )
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
+
+        self.game_data_lock.acquire()
+        pz = self.db.players.items()
+        
+        def by_skill( a,b ):
+            return cmp(b[1].skill, a[1].skill)            
+        pz.sort(by_skill)        
+        for i,p in enumerate(pz):
+            self.db.players[p[1].name].rank = i+1
+        self.game_data_lock.release()
+
+
+        # dbg display
         ds = time() - starttime
         mins = int(ds / 60)
         secs = ds - mins*60
@@ -271,6 +283,7 @@ class TcpGame(threading.Thread):
             pdata = self.db.players[p]
             ts_players.append( TrueSkillPlayer(i, (pdata.mu,pdata.sigma), ranks[i] ) )
         self.game_data_lock.release()
+        
         try:
             trueskill.AdjustPlayers(ts_players)
         except Exception, e:
@@ -334,8 +347,6 @@ class TCPGameServer(object):
     def __init__(self, opts, game_db, port, game_data_lock):
         self.opts = opts
         self.db = game_db
-        self.clients = []
-        self.games = []
         self.game_data_lock = game_data_lock        
 
         # read in the available mapfiles
