@@ -107,6 +107,7 @@ class AntsHttpServer(HTTPServer):
         self.db = None
         self.opts = None
         self.maps = None
+        self.cache = {}
         HTTPServer.__init__(self, *args)
 
         
@@ -217,6 +218,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</body></html>"
         self.wfile.write(html)
         
+        
     def serve_live(self,match):
         from tcpserver import book
         html = self.header( "live" )
@@ -231,8 +233,9 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.footer()
         html += "</body></html>"
         self.wfile.write(html)
+
+
     def serve_radmin(self, match):
-        print match, match.group(0)
         u,q = match.group(0).split('?')
         k,v = q.split('=')
         try:
@@ -241,7 +244,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         except Exception,e:
             print e
         self.serve_settings(match)
-        
+
+
     def serve_main(self):
         html = self.header("latest games on " + str(self.server.opts['host']) )
         html += self.game_head()
@@ -358,15 +362,19 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         except:
             mime_type = 'text/plain'
         fname = os.getcwd() + match.group(0)
-        try:    
-            f = open(fname,"rb")
-            self.send_response(200)
-            self.send_header('Content-type',mime_type)
-            self.end_headers()
-            self.wfile.write(f.read())
-            f.close()
-        except:
-            self.send_error(404, 'File Not Found: %s' % self.path)
+        if not fname in self.server.cache:
+            try:    
+                f = open(fname,"rb")
+                self.server.cache[fname] = f.read()
+                f.close()
+                log.info("added static %s to cache." % fname)
+            except:
+                self.send_error(404, 'File Not Found: %s' % self.path)
+                return
+        self.send_response(200)
+        self.send_header('Content-type',mime_type)
+        self.end_headers()
+        self.wfile.write(self.server.cache[fname])
         
         
     def do_GET(self):
@@ -377,7 +385,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
             
         for regex, func in (
-                ('^\/radmin(.*)', self.serve_radmin),
+                ('^\/%s(.*)' % self.server.radmin_page, self.serve_radmin),
                 ('^\/live', self.serve_live),
                 ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),

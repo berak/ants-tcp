@@ -28,6 +28,7 @@ class WebThread(threading.Thread):
 		self.server.opts = opts
 		self.server.maps = maps
 		self.server.game_data_lock = game_data_lock
+		self.server.radmin_page = "rad_27d4" # secret_url whithout leading /
 		
 	def run(self):
 		self.server.serve_forever()
@@ -40,11 +41,11 @@ def load_map_info():
 		for filename in filenames:
 			mf = open("maps/"+filename,"r")
 			for line in mf:
-				if line.startswith('players'):	np = int(line.split()[1])
+				if line.startswith('players'):	p = int(line.split()[1])
 				if line.startswith('rows'):		r = int(line.split()[1])
 				if line.startswith('cols'):		c = int(line.split()[1])
 			mf.close()
-			maps[filename] = (np,r,c)
+			maps[filename] = (p,r,c)
 	return maps
 
 

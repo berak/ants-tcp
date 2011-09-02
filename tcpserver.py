@@ -67,14 +67,12 @@ book = Bookkeeper()
 ## sandbox impl
 #
 class TcpBox(threading.Thread):
-    #~ def __init__(self, sock, parent):
     def __init__(self, sock):
         threading.Thread.__init__(self)
         self.sock = sock
         self.inp_lines = []
         
         #dbg stuff
-        #~ self.parent = parent
         self.name =""
         self.game_id=0
         
@@ -82,12 +80,10 @@ class TcpBox(threading.Thread):
         self.start()
         
     def __del__(self):
-        print "__del__", self.game_id, self.name, self
-
+        #~ print "__del__", self.game_id, self.name, self
         try:
             book.players.remove( self.name )
-        except: pass
-            
+        except: pass            
         self._close()
                 
     def run( self ):
@@ -175,7 +171,6 @@ class TcpBox(threading.Thread):
 
     
 class TcpGame(threading.Thread):
-    #~ def __init__( self, db, opts, map_name, nplayers, game_data_lock, parent ):
     def __init__( self, db, opts, map_name, nplayers, game_data_lock ):
         threading.Thread.__init__(self)
         self.db = db
@@ -187,17 +182,13 @@ class TcpGame(threading.Thread):
         self.nplayers = nplayers
         self.bots=[]
         self.game_data_lock = game_data_lock
-        #~ self.parent = parent
         self.ants = Ants(opts)
         
     def __del__(self):
-        print "__del__", self.id, self
-        
+        #~ print "__del__", self.id, self       
         try:
             book.games.remove(self.id)
-        except: pass
-            
-        #~ self.parent.release_game( self )
+        except: pass            
         for b in self.bots:
             b.kill()
             
@@ -415,7 +406,7 @@ class TCPGameServer(object):
 
     def select_map(self):
         ## try to find a map that does not need more players than available
-        max_players = len(book.players)
+        max_players = len(book.players)/2
         if max_players < 2:
             max_players = 2
         base_name = random.choice( self.maps.keys() )
