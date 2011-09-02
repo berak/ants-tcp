@@ -236,13 +236,14 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
     def serve_radmin(self, match):
-        u,q = match.group(0).split('?')
-        k,v = q.split('=')
-        try:
-            if k in self.server.opts:
-                self.server.opts[k] = v
-        except Exception,e:
-            print e
+        if self.server.radmin_page:
+            u,q = match.group(0).split('?')
+            k,v = q.split('=')
+            try:
+                if k in self.server.opts:
+                    self.server.opts[k] = v
+            except Exception,e:
+                print e
         self.serve_settings(match)
 
 

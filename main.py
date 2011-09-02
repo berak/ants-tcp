@@ -28,7 +28,7 @@ class WebThread(threading.Thread):
 		self.server.opts = opts
 		self.server.maps = maps
 		self.server.game_data_lock = game_data_lock
-		self.server.radmin_page = "rad_27d4" # secret_url whithout leading /
+		self.server.radmin_page = None #"rad_27d4" # secret_url whithout leading /
 		
 	def run(self):
 		self.server.serve_forever()
@@ -69,11 +69,11 @@ def main():
 		'food': 'symmetric',
 		
 		## non-ants related tcp opts
-		'skill': 'jskills',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
+		'skill': 'py',			# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
 		'db_max_games': 100,	# how many games should be kept on the webserver
-		'multi_games': True,    # allow users to play multiple games at the same time
-								# if set to False, players will get rejected until their latest game ended
+		'multi_games': False,   # allow users to play multiple games at the same time
+								# if set to False, players will have to wait until their latest game ended
 		## web opts:
 		'style': 'light', # or 'dark'
 		'host': socket.gethostname(),
