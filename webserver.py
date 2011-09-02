@@ -357,8 +357,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def serve_file(self, match):
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python'}
-        junk,end = match.group(0).split('.')
         try:
+            junk,end = match.group(0).split('.')
             mime_type = mime[end]
         except:
             mime_type = 'text/plain'
