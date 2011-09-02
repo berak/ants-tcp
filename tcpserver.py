@@ -257,7 +257,7 @@ class TcpGame(threading.Thread):
             
         self.game_data_lock.release()
 
-        # update rankings
+        # update trueskill
         if sum(ranks) >= len(ranks)-1:
             if self.opts['skill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
@@ -266,11 +266,11 @@ class TcpGame(threading.Thread):
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
-        self.game_data_lock.acquire()
-        pz = self.db.players.items()
-        
+        # update rankings
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
+        self.game_data_lock.acquire()
+        pz = self.db.players.items()        
         pz.sort(by_skill)        
         for i,p in enumerate(pz):
             self.db.players[p[1].name].rank = i+1
@@ -414,7 +414,13 @@ class TCPGameServer(object):
         self.server=None
 
     def select_map(self):
+        ## try to find a map that does not need more players than available
+        max_players = len(book.players)
+        if max_players < 2:
+            max_players = 2
         base_name = random.choice( self.maps.keys() )
+        while( self.maps[base_name][0] > max_players ):
+            base_name = random.choice( self.maps.keys() )
         map_name = os.path.join( 'maps', base_name )
         data = ""
         f = open(map_name, 'r')
@@ -465,10 +471,10 @@ class TCPGameServer(object):
                     client, address = self.server.accept()
                     data = client.recv(4096).strip()
                     name = data.split()[1]
-                    if (name in book.players) and (not self.opts['multi_games']):
-                        log.warning('user %s tried to connect twice!! ' % (name))
+                    if (name in book.players) and (str(self.opts['multi_games'])=="False"):
+                        log.info('user %s must wait' % (name))
                         try:                       
-                            client.sendall("INFO: %s is already running a game here !\nend\ngo\n" % name )
+                            client.sendall("INFO: %s is already running a game.\nend\ngo\n" % name )
                             client.close()
                             client = None
                         except:

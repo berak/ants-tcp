@@ -46,9 +46,9 @@ def tcp(host, port, bot_command, user, options):
     sock = socket(AF_INET, SOCK_STREAM)
     sock.connect((host, port))
     if sock:
-        sys.stderr.write("\n\nconnected to %s:%d\n" % (host,port))
+        sys.stderr.write("\n\nconnected to %s:%d as %s\n" % (host,port,user))
     else:
-        print( "failed to connect to " + host + " on port " + str(port) )
+        sys.stderr.write("\n\nfailed to connect to %s:%d as %s\n" % (host,port,user))
         return
             
     # send greetz
@@ -80,8 +80,8 @@ def tcp(host, port, bot_command, user, options):
                 
             print( line )            
             if line.startswith("INFO:"): # not meant for the bot
-                if line.find("already running") > 0: 
-                    time_out += 10.0
+                if (line.find("already running")>0) or (line.find("already queued")>0): 
+                    time_out += 10.0 + 10.0*random.random()
                     continue
                 continue
                 

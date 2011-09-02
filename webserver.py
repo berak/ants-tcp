@@ -83,7 +83,7 @@ body,iframe,textarea,input,button,file,.but{
 }
 a{
 	text-decoration: none;
-	color:#bbb;
+    color:#bbb;
 }
 a:hover{
 	color:#ddd;
@@ -92,12 +92,11 @@ a:hover{
 table.tablesorter thead th tr tfoot {
     text-align: left;
     background-color:#666666;
-    border-color:#CCCCCC;
 }
 table.tablesorter tbody td tfoot {
     text-align: left;
     border: 1;
-    border-color:#CCCCCC;
+    font-size: 9;
 }
 """
 }
@@ -217,6 +216,31 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.footer()
         html += "</body></html>"
         self.wfile.write(html)
+        
+    def serve_live(self,match):
+        from tcpserver import book
+        html = self.header( "live" )
+        html += "<ul>"
+        for p in book.players:
+            html += "<li>"+str(p)+"\n"
+        html += "</ul>"
+        html += "<ul>"
+        for g in book.games:
+            html += "<li>"+str(g)+"\n"
+        html += "</ul>"
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
+    def serve_radmin(self, match):
+        print match, match.group(0)
+        u,q = match.group(0).split('?')
+        k,v = q.split('=')
+        try:
+            if k in self.server.opts:
+                self.server.opts[k] = v
+        except Exception,e:
+            print e
+        self.serve_settings(match)
         
     def serve_main(self):
         html = self.header("latest games on " + str(self.server.opts['host']) )
@@ -353,6 +377,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
             
         for regex, func in (
+                ('^\/radmin(.*)', self.serve_radmin),
+                ('^\/live', self.serve_live),
                 ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
