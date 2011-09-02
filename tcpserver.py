@@ -55,12 +55,13 @@ import json
 ## sandbox impl
 #
 class TcpBox(threading.Thread):
-    def __init__(self, sock):
+    def __init__(self, sock, parent):
         threading.Thread.__init__(self)
         self.sock = sock
         self.inp_lines = []
         
         #dbg stuff
+        self.parent = parent
         self.name =""
         self.game_id=0
         
@@ -68,6 +69,7 @@ class TcpBox(threading.Thread):
         self.start()
         
     def __del__(self):
+        self.parent.release_player(self)
         self._close()
                 
     def run( self ):
@@ -156,7 +158,7 @@ from engine import run_game
 
     
 class TcpGame(threading.Thread):
-    def __init__( self, db, opts, map_name, nplayers, game_data_lock ):
+    def __init__( self, db, opts, map_name, nplayers, game_data_lock, parent ):
         threading.Thread.__init__(self)
         self.db = db
         self.id = db.latest
@@ -167,20 +169,15 @@ class TcpGame(threading.Thread):
         self.nplayers = nplayers
         self.bots=[]
         self.game_data_lock = game_data_lock
+        self.parent = parent
         self.ants = Ants(opts)
         
     def __del__(self):
         #~ print "__del__", self.id, self
+        self.parent.release_game( self )
         for b in self.bots:
             b.kill()
             
-    def addplayer(self, name,sock):
-        self.players.append(name)
-        box = TcpBox(sock)
-        box.name=name
-        box.game_id = self.id
-        self.bots.append( box )
-        return len(self.bots)
 
     def run(self):
         starttime = time()
@@ -344,24 +341,39 @@ class TcpGame(threading.Thread):
         self.game_data_lock.release()
 
 class TCPGameServer(object):        
-    def __init__(self, opts, game_db, port, game_data_lock):
+    def __init__(self, opts, game_db, port, game_data_lock, maps):
         self.opts = opts
         self.db = game_db
+        self.maps = maps
         self.game_data_lock = game_data_lock        
-
-        # read in the available mapfiles
-        self.map_files = []
-        for root,dirs,filenames in os.walk("maps"):
-            for filename in filenames:
-                self.map_files.append(filename)
-        #~ print  self.map_files
+        self.active_players= {}
+        self.active_games = {}
         
         # tcp binding options
         self.port = port
         self.backlog = 5
         
         self.bind()
+
+    def addplayer(self, game, name,sock):
+        box = TcpBox(sock, self)
+        box.name=name
+        box.game_id = game.id
+        game.bots.append( box )
+        game.players.append(name)
+        self.active_players[name] = box
+        return len(game.bots)
         
+    def release_player(self,player):
+        try:
+            del( self.active_players[player.name] )
+        except:pass
+            
+    def release_game(self,game):
+        try:
+            del( self.active_games[game.id] )
+        except:pass
+                
     def bind(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -376,9 +388,9 @@ class TCPGameServer(object):
         self.server=None
 
     def select_map(self):
-        id = int(len(self.map_files) * random.random())
-        base_name = self.map_files[id]
-        map_name = os.path.join( 'maps', base_name)
+        #~ id = int(len(self.maps) * random.random())
+        base_name = random.choice( self.maps.keys() )
+        map_name = os.path.join( 'maps', base_name )
         data = ""
         f = open(map_name, 'r')
         for line in f:
@@ -403,13 +415,15 @@ class TCPGameServer(object):
         opts['map'] = map_data
        
         log.info( "game %d %s needs %d players" %(self.db.latest,map_name,nplayers) )
-        return TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock )
+        g = TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock, self )
+        self.active_games[g.id] = g
+        return g
                 
                 
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
-        
+        t = 0
         while self.server:
             try:
                 inputready,outputready,exceptready = select.select([self.server], [], [], 0.1)
@@ -436,7 +450,7 @@ class TCPGameServer(object):
                         continue
                     log.info('user %s connected: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
                     # start game if enough players joined
-                    if self.next_game.addplayer( name, client ) == self.next_game.nplayers:
+                    if self.addplayer( self.next_game, name, client ) == self.next_game.nplayers:
                         game = self.next_game
                         game.start()
                         game = None
@@ -449,6 +463,10 @@ class TCPGameServer(object):
                     log.info( "removed %s from next_game:%d" % (b.name, self.next_game.id) )
                     del( self.next_game.bots[i] )
                     del( self.next_game.players[i] )
+                    
+            if t % 100 == 1:
+                log.info("%d games, %d players online." % (len(self.active_games),len(self.active_players)) )
+            t += 1
             sleep(0.005)
                 
         self.shutdown()

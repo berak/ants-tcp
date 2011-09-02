@@ -45,7 +45,7 @@ def tcp(host, port, bot_command, user, options):
     sock = socket(AF_INET, SOCK_STREAM)
     sock.connect((host, port))
     if sock:
-        sys.stderr.write("connected\n")
+        sys.stderr.write("\n\nconnected to %s:%d\n" % (host,port))
     else:
         print( "failed to connect to " + host + " on port " + str(port) )
         return

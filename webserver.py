@@ -107,6 +107,7 @@ class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
         self.db = None
         self.opts = None
+        self.maps = None
         HTTPServer.__init__(self, *args)
 
         
@@ -130,13 +131,15 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         <a href='/tcpclient.py' title='get the python client'> Client.py </a>
         <br><p>
         """
-        
+    
+    
     def footer(self):
         #~ anum = int(1 + random.random() * 11)
         #~ apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
         apic="^^^"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
-        
+    
+    
     def serve_visualizer(self, match):
         junk,gid = match.group(0).split('.')
         rep_file = os.getcwd() + "/games/" + gid + ".replay"
@@ -170,10 +173,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             """
         self.wfile.write(html)
 
+
     def game_head(self):
         return """<table id='myTable' class='tablesorter' width='100%'>
             <thead><tr><th>Game </th><th>Players</th><th>Turns</th><th>Date</th><th>Map</th></tr></thead>"""
-            
+        
+        
     def game_line(self, g):
         html = "<tr><td><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
         for key, value in sorted(g.players.iteritems(), key=lambda (k,v): (v,k), reverse=True):
@@ -184,10 +189,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tr>"
         return html
         
+        
     def rank_head(self):
         return """<table id='plTable' class='tablesorter' width='100%'>
             <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th></tr></thead>"""
-            
+        
+        
     def rank_line( self, p ):
         html  = "<tr><td><a href='/player/" + str(p.name) + "'>"+str(p.name)+"</a></td>" 
         html += "<td>" + str(p.rank) + "</td>"
@@ -198,6 +205,18 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<td>" + str(p.ngames) + "</td>"
         html += "</tr>"
         return html
+        
+        
+    def serve_maps(self, match):
+        html = self.header( "%d maps" % len(self.sever.maps) )
+        html += "<table id='maps' class='tablesorter' width='70%'>"
+        html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
+        for k,v in self.server.maps.iteritems():
+            html += "<tr><td>"+str(k)+"</td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
+        html += "</table>"
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
         
     def serve_main(self):
         html = self.header("latest games on " + str(self.server.opts['host']) )
@@ -211,6 +230,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.footer()
         html += "</body></html>"
         self.wfile.write(html)
+        
         
     def serve_player(self, match):
         player = match.group(0).split("/")[2]
@@ -244,6 +264,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</body></html>"
         self.wfile.write(html)
         
+        
     def serve_ranking(self, match):
         html = self.header("Rankings")
         html += self.rank_head()
@@ -263,7 +284,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.footer()
         html += "</body></html>"
         self.wfile.write(html)
-        
+    
+    
     def serve_map( self, match ):
         style = """
             <style>
@@ -303,7 +325,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
         self.wfile.write(result)
             
-        
 
     def serve_file(self, match):
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python'}
@@ -313,14 +334,17 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         except:
             mime_type = 'text/plain'
         fname = os.getcwd() + match.group(0)
-        f = open(fname,"rb")
-        self.send_response(200)
-        self.send_header('Content-type',mime_type)
-        self.end_headers()
-        self.wfile.write(f.read())
-        f.close()
+        try:    
+            f = open(fname,"rb")
+            self.send_response(200)
+            self.send_header('Content-type',mime_type)
+            self.end_headers()
+            self.wfile.write(f.read())
+            f.close()
+        except:
+            self.send_error(404, 'File Not Found: %s' % self.path)
         
-            
+        
     def do_GET(self):
         log.info(self.path)
 
@@ -331,6 +355,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         for regex, func in (
                 ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),
+                ('^\/maps', self.serve_maps),
                 ('^\/map/(.*)', self.serve_map),
                 ('^\/player\/(.*)', self.serve_player),
                 ('^\/replay\.([0-9]+)', self.serve_visualizer),

@@ -3,6 +3,7 @@
 import threading
 import socket
 import sys
+import os
 
 
 import tcpserver
@@ -11,24 +12,40 @@ import game_db
 
 
 class TcpThread(threading.Thread):
-	def __init__(self, opts, db, port, game_data_lock):
+	def __init__(self, opts, db, port, game_data_lock, maps):
 		threading.Thread.__init__(self)
-		self.server = tcpserver.TCPGameServer( opts, db, port, game_data_lock )
+		self.server = tcpserver.TCPGameServer( opts, db, port, game_data_lock, maps )
 
 	def run(self):
 		self.server.serve()
 
 
 class WebThread(threading.Thread):
-	def __init__(self, opts, db, port, game_data_lock):
+	def __init__(self, opts, db, port, game_data_lock, maps):
 		threading.Thread.__init__(self)
 		self.server = webserver.AntsHttpServer(('', port), webserver.AntsHttpHandler)
 		self.server.db = db
 		self.server.opts = opts
+		self.server.maps = maps
 		self.server.game_data_lock = game_data_lock
 		
 	def run(self):
 		self.server.serve_forever()
+
+
+
+def load_map_info():
+	maps={}
+	for root,dirs,filenames in os.walk("maps"):
+		for filename in filenames:
+			mf = open("maps/"+filename,"r")
+			for line in mf:
+				if line.startswith('players'):	np = int(line.split()[1])
+				if line.startswith('rows'):		r = int(line.split()[1])
+				if line.startswith('cols'):		c = int(line.split()[1])
+			mf.close()
+			maps[filename] = (np,r,c)
+	return maps
 
 
 def main():
@@ -62,12 +79,13 @@ def main():
 		'wep_port':web_port,
 		'tcp_port':tcp_port,
 	}
-	
+
 	db  = game_db.load()
+	maps = load_map_info()
 	game_data_lock = threading.Lock()
 
-	tcp = TcpThread( opts, db, tcp_port, game_data_lock )	
-	web = WebThread( opts, db, web_port, game_data_lock )
+	tcp = TcpThread( opts, db, tcp_port, game_data_lock, maps )	
+	web = WebThread( opts, db, web_port, game_data_lock, maps )
 	
 	try:
 		tcp.start()

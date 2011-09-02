@@ -16,7 +16,7 @@ lots of things will need further tweaking:
 	should bots, that got eliminated be kept to the end or released as early as possible?
 	currently, it uses no pairing at all,  just: create a game, gather players, start it.
 	mcleo's source had a nice webcache for the http part
-	maybe it should look at some system resources, before blindly starting a new game / create more threads
+	currently, it's just blindly starting new games / threads without looking at system resources
 	
 finally, this was the original PW code:
 	'https://github.com/McLeopold/TCPServer', 
