@@ -120,18 +120,37 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type','text/html')
         self.end_headers()
-        return """<html><head>
+        
+        head = """<html><head>
         <link rel="icon" href='/favicon.ico'>
         <title>"""  + title + """</title>
-        <style>"""  + style[self.server.opts['style']] + """</style>
-        </head><body>
-        &nbsp;
+        <style>"""  + style[self.server.opts['style']] + """</style>"""
+        if str(self.server.opts['sort'])=='True':
+            head += """
+                <script type="text/javascript" src="/js/jquery-1.2.6.min.js"></script> 
+                <script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
+                """
+        head += """</head><body> &nbsp;
         <a href='/' name=top> Latest Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/tcpclient.py' title='get the python client'> Client.py </a>
         <br><p>
         """
+        return head
     
+    
+    def foot_sort(self, name):
+        if str(self.server.opts['sort'])=='True':
+            return """
+                <script>
+                $(document).ready(function() 
+                    { 
+                        $("#%s").tablesorter(); 
+                    } 
+                ); 
+                </script>
+            """ % name
+        return ""
     
     def footer(self):
         #~ anum = int(1 + random.random() * 11)
@@ -175,7 +194,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
     def game_head(self):
-        return """<table id='myTable' class='tablesorter' width='100%'>
+        return """<table id='games' class='tablesorter' width='100%'>
             <thead><tr><th>Game </th><th>Players</th><th>Turns</th><th>Date</th><th>Map</th></tr></thead>"""
         
         
@@ -191,7 +210,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def rank_head(self):
-        return """<table id='plTable' class='tablesorter' width='100%'>
+        return """<table id='players' class='tablesorter' width='100%'>
             <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th></tr></thead>"""
         
         
@@ -211,10 +230,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header( "%d maps" % len(self.server.maps) )
         html += "<table id='maps' class='tablesorter' width='70%'>"
         html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
+        html += "<tbody>"
         for k,v in self.server.maps.iteritems():
             html += "<tr><td>"+str(k)+"</td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
+        html += "</tbody>"
         html += "</table>"
         html += self.footer()
+        html += self.foot_sort('maps')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -257,6 +279,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
+        html += self.foot_sort('games')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -278,6 +301,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
+        html += self.foot_sort('games')
         html += "</body></html>"
         self.wfile.write(html)
 
@@ -285,11 +309,15 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_settings(self, match):
         html = self.header("Settings")
         html += "<table id='sets' class='tablesorter' width='70%'>"
+        html += "<thead><tr><th>Name</th><th>Value</th></tr></thead>"
+        html += "<tbody>"
         for k,v in self.server.opts.iteritems():
             if k=='map': continue
             html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
+        html += "</tbody>"
         html += "</table>"
         html += self.footer()
+        html += self.foot_sort('sets')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -311,6 +339,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
         html += "</tbody></table>"
         html += self.footer()
+        html += self.foot_sort('players')
         html += "</body></html>"
         self.wfile.write(html)
     

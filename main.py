@@ -72,11 +72,12 @@ def main():
 		'skill': 'py',			# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
 		'db_max_games': 100,	# how many games should be kept on the webserver
-		'multi_games': False,   # allow users to play multiple games at the same time
+		'multi_games': 'False', # allow users to play multiple games at the same time
 								# if set to False, players will have to wait until their latest game ended
 		## web opts:
-		'style': 'light', # or 'dark'
+		'style': 'light',		# or 'dark'
 		'host': socket.gethostname(),
+		'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~80kb additional download)
 		
 		'wep_port':web_port,
 		'tcp_port':tcp_port,
