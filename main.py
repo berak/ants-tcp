@@ -71,7 +71,8 @@ def main():
 		'skill': 'jskills',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
 		'db_max_games': 100,	# how many games should be kept on the webserver
-		
+		'multi_games':False,    # allow users to play multiple games at the same time
+								# if set to False, players will get rejected until their latest game ended
 		## web opts:
 		'style': 'light', # or 'dark'
 		'host': socket.gethostname(),

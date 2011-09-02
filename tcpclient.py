@@ -36,10 +36,11 @@ def readline(sock):
         s += c
   return s
 
-
-def tcp(host, port, bot_command, user, options):      
+time_out = 1.0
+def tcp(host, port, bot_command, user, options):     
+    global time_out
     # spread out if in batch mode, to allow more random ordering on the server
-    time.sleep(5.0 * random.random())
+    time.sleep(time_out + 5.0 * random.random())
        
     # Start up the network connection
     sock = socket(AF_INET, SOCK_STREAM)
@@ -79,12 +80,16 @@ def tcp(host, port, bot_command, user, options):
                 
             print( line )            
             if line.startswith("INFO:"): # not meant for the bot
+                if line.find("already running") > 0: 
+                    time_out += 10.0
+                    continue
                 continue
                 
             bot_input += line + "\n"
             if line.startswith("end"):
                 end_reached = True                
             if line.startswith("ready"):
+                time_out = 1.0
                 break
             if line.startswith("go"):
                 if end_reached:
@@ -148,8 +153,8 @@ def main():
     for i in range(rounds):
         tcp(host, port, botpath, pname, {})
         
-    #~ # keep konsole window open (for debugging)
-    #~ sys.stdin.read()
+    # keep konsole window open (for debugging)
+    sys.stdin.read()
     
 if __name__ == "__main__":
     main()

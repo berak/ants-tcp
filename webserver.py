@@ -208,7 +208,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def serve_maps(self, match):
-        html = self.header( "%d maps" % len(self.sever.maps) )
+        html = self.header( "%d maps" % len(self.server.maps) )
         html += "<table id='maps' class='tablesorter' width='70%'>"
         html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
         for k,v in self.server.maps.iteritems():
@@ -255,7 +255,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def serve_settings(self, match):
         html = self.header("Settings")
-        html += "<table>"
+        html += "<table id='sets' class='tablesorter' width='70%'>"
         for k,v in self.server.opts.iteritems():
             if k=='map': continue
             html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)

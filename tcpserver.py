@@ -15,9 +15,11 @@ import subprocess
 from time import time,asctime
 
 from ants import Ants
+from engine import run_game
 
 import game_db
 from game_db import GameData, PlayerData, GameDB
+
 
 # create console handler and set level to debug
 ch = logging.StreamHandler()
@@ -51,17 +53,28 @@ import json
 
 #~ log = logging.getLogger("game.Ants")
 
+
+## ugly global    
+class Bookkeeper:
+    players=set()
+    games=set()
+
+book = Bookkeeper()
+
+
+
 #
 ## sandbox impl
 #
 class TcpBox(threading.Thread):
-    def __init__(self, sock, parent):
+    #~ def __init__(self, sock, parent):
+    def __init__(self, sock):
         threading.Thread.__init__(self)
         self.sock = sock
         self.inp_lines = []
         
         #dbg stuff
-        self.parent = parent
+        #~ self.parent = parent
         self.name =""
         self.game_id=0
         
@@ -69,7 +82,12 @@ class TcpBox(threading.Thread):
         self.start()
         
     def __del__(self):
-        self.parent.release_player(self)
+        print "__del__", self.game_id, self.name, self
+
+        try:
+            book.players.remove( self.name )
+        except: pass
+            
         self._close()
                 
     def run( self ):
@@ -154,11 +172,11 @@ class TcpBox(threading.Thread):
         #~ pass
 
 
-from engine import run_game
 
     
 class TcpGame(threading.Thread):
-    def __init__( self, db, opts, map_name, nplayers, game_data_lock, parent ):
+    #~ def __init__( self, db, opts, map_name, nplayers, game_data_lock, parent ):
+    def __init__( self, db, opts, map_name, nplayers, game_data_lock ):
         threading.Thread.__init__(self)
         self.db = db
         self.id = db.latest
@@ -169,12 +187,17 @@ class TcpGame(threading.Thread):
         self.nplayers = nplayers
         self.bots=[]
         self.game_data_lock = game_data_lock
-        self.parent = parent
+        #~ self.parent = parent
         self.ants = Ants(opts)
         
     def __del__(self):
-        #~ print "__del__", self.id, self
-        self.parent.release_game( self )
+        print "__del__", self.id, self
+        
+        try:
+            book.games.remove(self.id)
+        except: pass
+            
+        #~ self.parent.release_game( self )
         for b in self.bots:
             b.kill()
             
@@ -346,8 +369,8 @@ class TCPGameServer(object):
         self.db = game_db
         self.maps = maps
         self.game_data_lock = game_data_lock        
-        self.active_players= {}
-        self.active_games = {}
+        #~ self.active_players= {}
+        #~ self.active_games = {}
         
         # tcp binding options
         self.port = port
@@ -356,21 +379,24 @@ class TCPGameServer(object):
         self.bind()
 
     def addplayer(self, game, name,sock):
-        box = TcpBox(sock, self)
+        box = TcpBox(sock)
         box.name=name
         box.game_id = game.id
         game.bots.append( box )
         game.players.append(name)
-        self.active_players[name] = box
+        book.players.add(name)
+        #~ self.active_players[name] = box
         return len(game.bots)
         
     def release_player(self,player):
         try:
+            print "bye", player
             del( self.active_players[player.name] )
         except:pass
             
     def release_game(self,game):
         try:
+            print "bye", game
             del( self.active_games[game.id] )
         except:pass
                 
@@ -388,7 +414,6 @@ class TCPGameServer(object):
         self.server=None
 
     def select_map(self):
-        #~ id = int(len(self.maps) * random.random())
         base_name = random.choice( self.maps.keys() )
         map_name = os.path.join( 'maps', base_name )
         data = ""
@@ -415,8 +440,9 @@ class TCPGameServer(object):
         opts['map'] = map_data
        
         log.info( "game %d %s needs %d players" %(self.db.latest,map_name,nplayers) )
-        g = TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock, self )
-        self.active_games[g.id] = g
+        g = TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock)
+        book.games.add(g.id)
+        #~ self.active_games[g.id] = g
         return g
                 
                 
@@ -439,10 +465,19 @@ class TCPGameServer(object):
                     client, address = self.server.accept()
                     data = client.recv(4096).strip()
                     name = data.split()[1]
+                    if (name in book.players) and (not self.opts['multi_games']):
+                        log.warning('user %s tried to connect twice!! ' % (name))
+                        try:                       
+                            client.sendall("INFO: %s is already running a game here !\nend\ngo\n" % name )
+                            client.close()
+                            client = None
+                        except:
+                            pass
+                        continue
                     if name in self.next_game.players:
                         log.warning('user %s tried to connect twice: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
                         try:                       
-                            client.sendall("INFO: you are already queued for game %d\n" % self.next_game.id )
+                            client.sendall("INFO: you are already queued for game %d\nend\ngo\n" % self.next_game.id )
                             client.close()
                             client = None
                         except:
@@ -465,7 +500,7 @@ class TCPGameServer(object):
                     del( self.next_game.players[i] )
                     
             if t % 100 == 1:
-                log.info("%d games, %d players online." % (len(self.active_games),len(self.active_players)) )
+                log.info("%d games, %d players online." % (len(book.games),len(book.players)) )
             t += 1
             sleep(0.005)
                 
