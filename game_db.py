@@ -11,6 +11,7 @@ class PlayerData():
 	ngames = 0
 	rank = 0
 	password = None
+	lastseen = None
 
 class GameData():
 	id = 0		# number

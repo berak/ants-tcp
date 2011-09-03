@@ -70,7 +70,7 @@ function SmoothieChart(options) {
   options.millisPerPixel = options.millisPerPixel || 20;
   options.fps = options.fps || 20;
   options.maxValueScale = options.maxValueScale || 1;
-  options.minValue = options.minValue || 1;
+  options.minValue = options.minValue || 0;
   options.labels = options.labels || { fillStyle:'#ffffff' }
   this.options = options;
   this.seriesSet = [];

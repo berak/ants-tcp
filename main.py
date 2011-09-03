@@ -45,7 +45,7 @@ def load_map_info():
 				if line.startswith('rows'):		r = int(line.split()[1])
 				if line.startswith('cols'):		c = int(line.split()[1])
 			mf.close()
-			maps[filename] = (p,r,c)
+			maps[filename] = [p,r,c,0]
 	return maps
 
 
@@ -55,7 +55,7 @@ def main():
 	tcp_port = 2081
 	
 	# to change the opts below online from the webserver,
-	#   enable a secret admin url and access it like: /my_s3cr3t_adm1n?attack=focus
+	#   set a secret admin url and access it like: /my_s3cr3t_adm1n?attack=focus
 	#   or None to disable
 	remote_admin = "rad_27d4"  # (no leading '/')
 

@@ -227,6 +227,7 @@ class TcpGame(threading.Thread):
                 player.name = p
                 self.db.players[p] = player
             player.ngames += 1
+            player.lastseen = g.date
             plr[p] = (scores[i], states[i])
         g.players = plr
         self.db.games[g.id] = g    
@@ -422,6 +423,8 @@ class TCPGameServer(object):
         base_name = random.choice( self.maps.keys() )
         while( self.maps[base_name][0] > max_players ):
             base_name = random.choice( self.maps.keys() )
+        self.maps[base_name][3] += 1
+        
         map_name = os.path.join( 'maps', base_name )
         data = ""
         f = open(map_name, 'r')

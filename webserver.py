@@ -220,7 +220,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def rank_head(self):
         return """<table id='players' class='tablesorter' width='100%'>
-            <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th></tr></thead>"""
+            <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th><th>Last Seen</th></tr></thead>"""
         
         
     def rank_line( self, p ):
@@ -231,16 +231,17 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<td>" + str(p.sigma) + "</td>"
         #~ html += "<td>" + str(len(p.games)) + "</td>"
         html += "<td>" + str(p.ngames) + "</td>"
+        html += "<td>" + str(p.lastseen) + "</td>"
         html += "</tr>"
         return html
         
     def serve_maps(self, match):
         html = self.header( "%d maps" % len(self.server.maps) )
         html += "<table id='maps' class='tablesorter' width='70%'>"
-        html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
+        html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th><th>Games</th></tr></thead>"
         html += "<tbody>"
         for k,v in self.server.maps.iteritems():
-            html += "<tr><td><a href='/map/"+str(k)+"'>"+str(k)+"</a></td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
+            html += "<tr><td><a href='/map/"+str(k)+"'>"+str(k)+"</a></td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td><td>"+str(v[3])+"</td></tr>\n"
         html += "</tbody>"
         html += "</table>"
         html += self.footer()
@@ -251,7 +252,19 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def serve_stats(self,match):
         self.send_head("text/plain")
-        txt = "%d %d\n" % (len(book.players),len(book.games))
+        i=0
+        txt = "%d %d" % (len(book.players),len(book.games))
+        ct={"survived":0,"eliminated":0,"timeout":0,"crashed 0":0}
+        for ng,g in self.server.db.games.iteritems():
+            for np,p in g.players.iteritems():
+                if i == 100:  break
+                ct[ p[1] ] += 1
+                i += 1
+            if i == 100:  break
+        txt += " %d" % ct["survived"] 
+        txt += " %d" % ct["eliminated"] 
+        txt += " %d" % ct["timeout"] 
+        txt += " %d" % ct["crashed 0"] 
         #~ txt += " ".join([p for p in book.players])
         self.wfile.write(txt)
         
@@ -277,6 +290,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <font size=1 color='#f00'>Players</font>
             <br> &nbsp; &nbsp; &nbsp; 
             <canvas id="chart" width="800" height="100"></canvas>            
+            <br> &nbsp; &nbsp; &nbsp; 
+            <font size=1 color='#0f0'>Survived</font>
+            <font size=1 color='#f00'>Eliminated</font>
+            <font size=1 color='#00f'>Timeout</font>
+            <font size=1 color='#0ff'>Crashed</font>
+            <br> &nbsp; &nbsp; &nbsp; 
+            <canvas id="gstat" width="800" height="100"></canvas>            
             <div id="players"><br><br><br><br><br><br><br></div>
             <div id="games"><br><br><br><br><br><br><br></div>
             <script type="text/javascript" src="/js/smoothie.js"></script>
