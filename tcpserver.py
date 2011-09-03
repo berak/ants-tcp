@@ -370,6 +370,10 @@ class TCPGameServer(object):
             pw = self.db.players[name].password
             if pw != password:
                 log.warning("invalid password given for %s : %s : %s" % (name, pw, password) )
+                sock.sendall("INFO: invalid password given for %s : %s\n"% (name, password) )
+                sock.sendall("end\ngo\n")
+                sock.close()
+                return -1
         else:
             player = PlayerData()
             player.password = password
@@ -468,7 +472,8 @@ class TCPGameServer(object):
             for s in inputready:
                 if s == self.server:
                     client, address = self.server.accept()
-                    data = client.recv(4096).strip().split()
+                    data = client.recv(4096).strip()
+                    data = data.split(" ")
                     name = data[1]
                     password = data[2]
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
@@ -491,6 +496,8 @@ class TCPGameServer(object):
                         continue
                     # start game if enough players joined
                     avail = self.addplayer( self.next_game, name, password, client )
+                    if avail==-1:
+                        break
                     log.info('user %s connected to game %d (%d/%d)' % (name,self.next_game.id,avail,self.next_game.nplayers))
                     if avail == self.next_game.nplayers:
                         game = self.next_game

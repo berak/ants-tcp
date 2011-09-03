@@ -11,12 +11,13 @@ from socket import socket, AF_INET, SOCK_STREAM
 
 
 USAGE="""
-    tcpclient.py   host_or_ip  port  botpath  player_nick  [password]  [num_rounds]
+    tcpclient.py   host_or_ip  port  botpath  player_nick  password  [num_rounds]
     
     if running on windows or if the botpath contains spaces,
     you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
     
-    player_nick may only contain ascii_letters, '_', and numbers
+    player_nick and password may only contain ascii_letters, '_', and numbers
+    
     
 """
 
@@ -35,6 +36,7 @@ def readline(sock):
      else:
         s += c
   return s
+
 
 time_out = 1.0
 def tcp(host, port, bot_command, user, password, options):     
@@ -81,7 +83,8 @@ def tcp(host, port, bot_command, user, password, options):
             print( line )            
             if line.startswith("INFO:"): # not meant for the bot
                 if (line.find("already running")>0) or (line.find("already queued")>0): 
-                    time_out += 10.0 + 10.0*random.random() ## penalty for getting eliminated, but still trying to be first in the upcoming game.
+                    ## penalty for getting eliminated, but still trying to be first in the upcoming game.
+                    time_out += 10.0 + 10.0*random.random()
                 continue
                 
             bot_input += line + "\n"
@@ -124,10 +127,21 @@ def tcp(host, port, bot_command, user, password, options):
     except:
         pass
 
-                      
+
+
+def check_string( pname, use ):
+    """ check for invalid chars since json won't like them. """
+    for l in pname:
+        if l in string.letters: continue
+        if l in string.digits : continue
+        if l =='_' : continue
+        print( "your "+use+" (" + pname + ") contains invalid characters, please choose another one!" )
+        return False
+    return True
+
 
 def main():
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 6:
         print USAGE
         return
         
@@ -135,28 +149,24 @@ def main():
     port=int(sys.argv[2])
     botpath=sys.argv[3]
     pname=sys.argv[4]    
-    try:
-        password = sys.argv[5]
-    except:
-        password = None
+    password = sys.argv[5]
+    
+    if not check_string(pname, "botname"):
+        return
+    if not check_string(password, "password"):
+        return
+        
     try:
         rounds = int(sys.argv[6])
     except:
         rounds = 1
 
-    # json can't handle special chars, so weed that out before playing 2000 turns, and crashing then..
-    for l in pname:
-        if l in string.letters: continue
-        if l in string.digits : continue
-        if l =='_' : continue
-        print( "your botname (" + pname + ") contains invalid characters, please choose another one!" )
-        return
     
     for i in range(rounds):
         tcp(host, port, botpath, pname, password, {})
         
-    # keep konsole window open (for debugging)
-    sys.stdin.read()
+    #~ # keep konsole window open (for debugging)
+    #~ sys.stdin.read()
     
 if __name__ == "__main__":
     main()
