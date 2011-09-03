@@ -10,6 +10,7 @@ class PlayerData():
 	sigma = 3.0
 	ngames = 0
 	rank = 0
+	password = None
 
 class GameData():
 	id = 0		# number

@@ -11,7 +11,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 
 
 USAGE="""
-    tcpclient.py   host_or_ip  port  botpath  player_nick  [num_rounds]
+    tcpclient.py   host_or_ip  port  botpath  player_nick  [password]  [num_rounds]
     
     if running on windows or if the botpath contains spaces,
     you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
@@ -37,7 +37,7 @@ def readline(sock):
   return s
 
 time_out = 1.0
-def tcp(host, port, bot_command, user, options):     
+def tcp(host, port, bot_command, user, password, options):     
     global time_out
     # spread out if in batch mode, to allow more random ordering on the server
     time.sleep(time_out + 5.0 * random.random())
@@ -52,7 +52,7 @@ def tcp(host, port, bot_command, user, options):
         return
             
     # send greetz
-    sock.sendall("USER %s\n" % user)
+    sock.sendall("USER %s %s\n" % (user, password) )
     
     # start bot
     try:
@@ -134,10 +134,13 @@ def main():
     host=sys.argv[1]
     port=int(sys.argv[2])
     botpath=sys.argv[3]
-    pname=sys.argv[4]
-    
+    pname=sys.argv[4]    
     try:
-        rounds = int(sys.argv[5])
+        password = sys.argv[5]
+    except:
+        password = None
+    try:
+        rounds = int(sys.argv[6])
     except:
         rounds = 1
 
@@ -150,10 +153,10 @@ def main():
         return
     
     for i in range(rounds):
-        tcp(host, port, botpath, pname, {})
+        tcp(host, port, botpath, pname, password, {})
         
-    #~ # keep konsole window open (for debugging)
-    #~ sys.stdin.read()
+    # keep konsole window open (for debugging)
+    sys.stdin.read()
     
 if __name__ == "__main__":
     main()

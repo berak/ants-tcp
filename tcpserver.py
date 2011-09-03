@@ -365,7 +365,17 @@ class TCPGameServer(object):
         
         self.bind()
 
-    def addplayer(self, game, name,sock):
+    def addplayer(self, game, name, password, sock):
+        if name in self.db.players:
+            pw = self.db.players[name].password
+            if pw != password:
+                log.warning("invalid password given for %s : %s : %s" % (name, pw, password) )
+        else:
+            player = PlayerData()
+            player.password = password
+            player.name = name
+            self.db.players[name] = player
+            
         box = TcpBox(sock)
         box.name=name
         box.game_id = game.id
@@ -458,8 +468,9 @@ class TCPGameServer(object):
             for s in inputready:
                 if s == self.server:
                     client, address = self.server.accept()
-                    data = client.recv(4096).strip()
-                    name = data.split()[1]
+                    data = client.recv(4096).strip().split()
+                    name = data[1]
+                    password = data[2]
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
                         log.info('user %s must wait' % (name))
                         try:                       
@@ -479,7 +490,7 @@ class TCPGameServer(object):
                             pass
                         continue
                     # start game if enough players joined
-                    avail = self.addplayer( self.next_game, name, client )
+                    avail = self.addplayer( self.next_game, name, password, client )
                     log.info('user %s connected to game %d (%d/%d)' % (name,self.next_game.id,avail,self.next_game.nplayers))
                     if avail == self.next_game.nplayers:
                         game = self.next_game

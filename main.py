@@ -56,7 +56,7 @@ def main():
 	
 	# to change the opts below online from the webserver,
 	#   enable a secret admin url and access it like: /my_s3cr3t_adm1n?attack=focus
-	remote_admin = None #"rad_27d4"  # (no leading '/')
+	remote_admin = "rad_27d4"  # (no leading '/')
 
 	# all opts in one dict, so we can show them on http
 	opts = {
