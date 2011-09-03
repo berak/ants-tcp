@@ -200,7 +200,7 @@ class TcpGame(threading.Thread):
             
         # save replay, add playernames to it
         scores = self.ants.get_scores()
-        ranks = [sorted(set(scores), reverse=True).index(x) for x in scores]
+        ranks = [sorted(scores, reverse=True).index(x) for x in scores]
         game_result['playernames'] = []
         for i,p in enumerate(self.players):
             game_result['playernames'].append(p)
@@ -210,8 +210,9 @@ class TcpGame(threading.Thread):
         f.close()
         
         # add to game db data shared with the webserver
-        self.game_data_lock.acquire()
-        
+        ok = self.game_data_lock.acquire()
+        if not ok:
+            log.error("LOCK FAILED adding to games db game %d" % self.id )        
         g = GameData()
         g.id = self.id
         g.map = self.map_name
@@ -249,7 +250,9 @@ class TcpGame(threading.Thread):
         # update rankings
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
-        self.game_data_lock.acquire()
+        ok = self.game_data_lock.acquire()
+        if not ok:
+            log.error("LOCK FAILED adding to games db game %d" % self.id )        
         pz = self.db.players.items()        
         pz.sort(by_skill)        
         for i,p in enumerate(pz):
@@ -305,7 +308,9 @@ class TcpGame(threading.Thread):
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 
-        self.game_data_lock.acquire()
+        ok = self.game_data_lock.acquire()
+        if not ok:
+            log.error("LOCK FAILED getting data for trueskill game %d" % self.id )        
         lines = []
         for i,p in enumerate(players):
             pdata = self.db.players[p]
@@ -330,7 +335,9 @@ class TcpGame(threading.Thread):
             return
             
         ## loop broken up to mimimize locking
-        self.game_data_lock.acquire()
+        ok = self.game_data_lock.acquire()
+        if not ok:
+            log.error("LOCK FAILED writing data for trueskill game %d" % self.id )        
         for i,p in enumerate(players):
             result = results[i]
             if str(p) != result[0]:
@@ -415,7 +422,9 @@ class TCPGameServer(object):
     def create_game(self):
         # we might crash..
         if self.db.latest % 10 == 1:
-            self.game_data_lock.acquire()
+            ok = self.game_data_lock.acquire()
+            if not ok:
+                log.error("LOCK FAILED saving db.")        
             game_db.save(self.db)            
             self.game_data_lock.release()
         

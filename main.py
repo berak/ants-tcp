@@ -28,7 +28,7 @@ class WebThread(threading.Thread):
 		self.server.opts = opts
 		self.server.maps = maps
 		self.server.game_data_lock = game_data_lock
-		self.server.radmin_page = None #"rad_27d4" # secret_url whithout leading /
+		self.server.radmin_page = "rad_27d4" # secret_url whithout leading /
 		
 	def run(self):
 		self.server.serve_forever()

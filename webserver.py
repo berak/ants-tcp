@@ -141,7 +141,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return head
     
     
-    def foot_sort(self, name):
+    def footer_sort(self, name):
         if str(self.server.opts['sort'])=='True':
             return """
                 <script>
@@ -157,16 +157,20 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def footer(self):
         #~ anum = int(1 + random.random() * 11)
         #~ apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
-        apic="^^^"
+        apic="^^°`"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
     
     
     def serve_visualizer(self, match):
-        junk,gid = match.group(0).split('.')
-        rep_file = os.getcwd() + "/games/" + gid + ".replay"
-        f = open(rep_file)
-        replaydata = f.read()
-        f.close()
+        try:
+            junk,gid = match.group(0).split('.')
+            rep_file = os.getcwd() + "/games/" + gid + ".replay"
+            f = open(rep_file)
+            replaydata = f.read()
+            f.close()
+        except:
+            self.send_error(404, 'File Not Found: %s' % rep_file)
+            return
         html = """
             <html>
             <head>
@@ -238,7 +242,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tbody>"
         html += "</table>"
         html += self.footer()
-        html += self.foot_sort('maps')
+        html += self.footer_sort('maps')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -281,7 +285,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
-        html += self.foot_sort('games')
+        html += self.footer_sort('games')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -303,7 +307,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
-        html += self.foot_sort('games')
+        html += self.footer_sort('games')
         html += "</body></html>"
         self.wfile.write(html)
 
@@ -319,7 +323,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tbody>"
         html += "</table>"
         html += self.footer()
-        html += self.foot_sort('sets')
+        html += self.footer_sort('sets')
         html += "</body></html>"
         self.wfile.write(html)
         
@@ -341,12 +345,48 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
         html += "</tbody></table>"
         html += self.footer()
-        html += self.foot_sort('players')
+        html += self.footer_sort('players')
         html += "</body></html>"
         self.wfile.write(html)
     
     
-    def serve_map( self, match ):
+    def serve_map( self, match ):      
+        #~ square = 5
+        #~ html = """
+        #~ <!--[if IE]><script src="res/excanvas.compiled.js"></script><![endif]-->    
+        #~ <canvas width=""" +str(w)+ " height=" +str(h+20)+ """ id='C'>
+        #~ <p>
+        #~ <script>
+            #~ replay = """ + simplejson.dumps(rep) + """;
+            #~ colors = {
+                #~ '%':'#0f5bb7',
+                #~ '.':'#049227',
+                #~ '*':'#1aba87',
+                #~ 'a':'#4ca9c8',
+                #~ 'b':'#6a9a2a',
+                #~ 'c':'#8a2b44',
+                #~ 'd':'#ff5d00'
+                #~ 'e':'#4ca9c8',
+                #~ 'f':'#6a9a2a',
+                #~ 'g':'#8a2b44',
+                #~ 'h':'#ff5d00'
+                #~ }
+            
+            #~ C = document.getElementById('C')
+            #~ V = C.getContext('2d');
+            #~ function drawboard(turn) {
+                #~ V.clearRect(0,0,500,500)
+                #~ V.fillStyle = 'white'            
+                #~ // draw base board 
+                #~ for (r=0; r<h; r++) {
+                    #~ for (c=0; c<w; c++) {
+                        #~ elm = replay['board'][r][c]
+                        #~ V.fillStyle = '#606060'
+                        #~ V.fillRect(c*square,r*square,square,square);
+                    #~ }
+                #~ }
+        #~ </script>"""
+            
         style = """
             <style>
                 .A { border:0; background-color:#f0f; width:5; height:5; }
@@ -385,7 +425,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
         self.wfile.write(result)
             
-
+            
+    #
+    ## static files will get cached in a dict
+    #
     def serve_file(self, match):
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python'}
         try:
@@ -393,6 +436,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             mime_type = mime[end]
         except:
             mime_type = 'text/plain'
+            
         fname = os.getcwd() + match.group(0)
         if not fname in self.server.cache:
             try:    
@@ -401,7 +445,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 f.close()
                 log.info("added static %s to cache." % fname)
             except:
-                self.send_error(404, 'File Not Found: %s' % self.path)
+                self.send_error(404, 'File Not Found: %s' % fname)
                 return
         self.send_response(200)
         self.send_header('Content-type',mime_type)
