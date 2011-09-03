@@ -18,6 +18,6 @@ lots of things will need further tweaking:
 	just blindly starting new games / threads without looking at system resources
 	
 	
-this would have never happened without the original PW code:
+this would have never been possible without the original PW code:
 	https://github.com/McLeopold/TCPServer
 	http://www.benzedrine.cx/planetwars/server.tar.gz  /  http://www.benzedrine.cx/planetwars/tcp.c
