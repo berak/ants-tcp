@@ -478,9 +478,10 @@ class TCPGameServer(object):
                         except:
                             pass
                         continue
-                    log.info('user %s connected: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
                     # start game if enough players joined
-                    if self.addplayer( self.next_game, name, client ) == self.next_game.nplayers:
+                    avail = self.addplayer( self.next_game, name, client )
+                    log.info('user %s connected to game %d (%d/%d)' % (name,self.next_game.id,avail,self.next_game.nplayers))
+                    if avail == self.next_game.nplayers:
                         game = self.next_game
                         game.start()
                         game = None

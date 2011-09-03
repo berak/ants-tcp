@@ -21,14 +21,14 @@ class TcpThread(threading.Thread):
 
 
 class WebThread(threading.Thread):
-	def __init__(self, opts, db, port, game_data_lock, maps):
+	def __init__(self, opts, db, port, game_data_lock, maps, radmin):
 		threading.Thread.__init__(self)
 		self.server = webserver.AntsHttpServer(('', port), webserver.AntsHttpHandler)
 		self.server.db = db
 		self.server.opts = opts
 		self.server.maps = maps
 		self.server.game_data_lock = game_data_lock
-		self.server.radmin_page = "rad_27d4" # secret_url whithout leading /
+		self.server.radmin_page = radmin
 		
 	def run(self):
 		self.server.serve_forever()
@@ -53,6 +53,10 @@ def main():
 	
 	web_port = 2080
 	tcp_port = 2081
+	
+	# to change the opts below online from the webserver,
+	#   enable a secret admin url and access it like: /my_s3cr3t_adm1n?attack=focus
+	remote_admin = "rad_27d4"  # (no leading '/')
 
 	# all opts in one dict, so we can show them on http
 	opts = {
@@ -88,7 +92,7 @@ def main():
 	game_data_lock = threading.Lock()
 
 	tcp = TcpThread( opts, db, tcp_port, game_data_lock, maps )	
-	web = WebThread( opts, db, web_port, game_data_lock, maps )
+	web = WebThread( opts, db, web_port, game_data_lock, maps, remote_admin )
 	
 	try:
 		tcp.start()
@@ -96,7 +100,7 @@ def main():
 	except:
 		game_db.save( db )		
 		raise
-		
+
 	
 if __name__ == "__main__":
     main()

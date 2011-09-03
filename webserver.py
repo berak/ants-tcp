@@ -8,6 +8,8 @@ import random
 import time
 import SimpleHTTPServer
 
+from tcpserver import book
+
 # create console handler and set level to debug
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
@@ -66,11 +68,9 @@ table.tablesorter tbody tr.odd td {
 }
 table.tablesorter thead tr .headerSortUp {
     background-color:#8D8DD8;
-    background-image:null;
 }
 table.tablesorter thead tr .headerSortDown {
     background-color:#8DBDD8;
-    background-image:null;
 }
 table.tablesorter thead tr .headerSortDown, table.tablesorter thead tr .headerSortUp {
     background-color:#8DBDD8;
@@ -118,10 +118,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, *args)
     
                 
-    def header(self, title):
+    def send_head(self, type='text/html'):
         self.send_response(200)
-        self.send_header('Content-type','text/html')
+        self.send_header('Content-type',type)
         self.end_headers()
+        
+    def header(self, title):
+        self.send_head()
         
         head = """<html><head>
         <link rel="icon" href='/favicon.ico'>
@@ -141,7 +144,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return head
     
     
-    def footer_sort(self, name):
+    def footer_sort(self, id):
         if str(self.server.opts['sort'])=='True':
             return """
                 <script>
@@ -151,13 +154,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     } 
                 ); 
                 </script>
-            """ % name
+            """ % id
         return ""
     
     def footer(self):
         #~ anum = int(1 + random.random() * 11)
         #~ apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
-        apic="^^°`"
+        apic="^^^"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
     
     
@@ -169,7 +172,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             replaydata = f.read()
             f.close()
         except:
-            self.send_error(404, 'File Not Found: %s' % rep_file)
+            self.send_error(404, 'File Not Found: %s.replay' % self.path)
             return
         html = """
             <html>
@@ -231,14 +234,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tr>"
         return html
         
-        
     def serve_maps(self, match):
         html = self.header( "%d maps" % len(self.server.maps) )
         html += "<table id='maps' class='tablesorter' width='70%'>"
         html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
         html += "<tbody>"
         for k,v in self.server.maps.iteritems():
-            html += "<tr><td>"+str(k)+"</td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
+            html += "<tr><td><a href='/map/"+str(k)+"'>"+str(k)+"</a></td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
         html += "</tbody>"
         html += "</table>"
         html += self.footer()
@@ -247,17 +249,40 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
         
         
-    def serve_live(self,match):
-        from tcpserver import book
-        html = self.header( "live" )
-        html += "<ul>"
+    def serve_stats(self,match):
+        self.send_head("text/plain")
+        txt = "%d %d\n" % (len(book.players),len(book.games))
+        #~ txt += " ".join([p for p in book.players])
+        self.wfile.write(txt)
+        
+    def serve_online(self,match):
+        html = self.header( "online" )
+        html += "%d players<ul>" % len(book.players)
         for p in book.players:
-            html += "<li>"+str(p)+"\n"
-        html += "</ul>"
-        html += "<ul>"
+            html += "<li>%s</li>\n" % p
+        html += "</ul><br>"
+        html += "%d games<ul>" % len(book.games)
         for g in book.games:
-            html += "<li>"+str(g)+"\n"
+            html += "<li>%s</li>\n" % g
         html += "</ul>"
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
+        
+    def serve_charts(self,match):
+        html = self.header( "stats" )
+        html += """
+            <br> &nbsp; &nbsp; &nbsp; 
+            <font size=1 color='#0f0'>Games</font>
+            <font size=1 color='#f00'>Players</font>
+            <br> &nbsp; &nbsp; &nbsp; 
+            <canvas id="chart" width="800" height="100"></canvas>            
+            <div id="players"><br><br><br><br><br><br><br></div>
+            <div id="games"><br><br><br><br><br><br><br></div>
+            <script type="text/javascript" src="/js/smoothie.js"></script>
+            <script type="text/javascript" src="/js/statistics.js"></script>
+            <script> loadTabs(); </script>
+            """
         html += self.footer()
         html += "</body></html>"
         self.wfile.write(html)
@@ -292,7 +317,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def serve_player(self, match):
         player = match.group(0).split("/")[2]
-        log.info( "PLAYER : " + match.group(0) )
+        #~ log.info( "PLAYER : " + match.group(0) )
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"
@@ -430,7 +455,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     ## static files will get cached in a dict
     #
     def serve_file(self, match):
-        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python'}
+        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:
             junk,end = match.group(0).split('.')
             mime_type = mime[end]
@@ -445,7 +470,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 f.close()
                 log.info("added static %s to cache." % fname)
             except:
-                self.send_error(404, 'File Not Found: %s' % fname)
+                self.send_error(404, 'File Not Found: %s' % self.path)
                 return
         self.send_response(200)
         self.send_header('Content-type',mime_type)
@@ -454,7 +479,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def do_GET(self):
-        log.info(self.path)
+        #~ log.info(self.path)
 
         if self.path == '/':
             self.serve_main()
@@ -462,7 +487,9 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
         for regex, func in (
                 ('^\/%s(.*)' % self.server.radmin_page, self.serve_radmin),
-                ('^\/live', self.serve_live),
+                ('^\/online', self.serve_online),
+                ('^\/charts', self.serve_charts),
+                ('^\/stats', self.serve_stats),
                 ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
