@@ -56,7 +56,7 @@ def main():
 	
 	# to change the opts below online from the webserver,
 	#   enable a secret admin url and access it like: /my_s3cr3t_adm1n?attack=focus
-	remote_admin = "rad_27d4"  # (no leading '/')
+	remote_admin = None #"rad_27d4"  # (no leading '/')
 
 	# all opts in one dict, so we can show them on http
 	opts = {
@@ -75,8 +75,8 @@ def main():
 		## non-ants related tcp opts
 		'skill': 'py',			# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
-		'db_max_games': 100,	# how many games should be kept on the webserver
-		'multi_games': 'False', # allow users to play multiple games at the same time
+		'db_max_games': 250,	# how many games should be kept on the webserver
+		'multi_games': 'True',  # allow users to play multiple games at the same time
 								# if set to False, players will have to wait until their latest game ended
 		## web opts:
 		'style': 'light',		# or 'dark'
