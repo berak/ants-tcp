@@ -35,26 +35,15 @@ log.setLevel(logging.INFO)
 # add ch to logger
 log.addHandler(ch)
 
-#~ gamelog = logging.getLogger('game')
-#~ gamelog.setLevel(logging.DEBUG)
-#~ gamelog.addHandler(ch)
-
-#~ gamedatalog = logging.getLogger('gamedata')
-#~ gamedatalog.setLevel(logging.DEBUG)
-#~ gamedatalog.addHandler(ch)
-
 
 BUFSIZ = 4096
 
 from math import ceil, sqrt
 from time import time,sleep
 import json
-#~ import logging
-
-#~ log = logging.getLogger("game.Ants")
 
 
-## ugly global    
+## ugly global, but the last thing you'll want here are circular refs! 
 class Bookkeeper:
     players=set()
     games=set()

@@ -65,10 +65,12 @@ table.tablesorter tbody tr.odd td {
     background-color:#F0F0F6;
 }
 table.tablesorter thead tr .headerSortUp {
-    background-image:url("asc.gif");
+    background-color:#8D8DD8;
+    background-image:null;
 }
 table.tablesorter thead tr .headerSortDown {
-    background-image:url("desc.gif");
+    background-color:#8DBDD8;
+    background-image:null;
 }
 table.tablesorter thead tr .headerSortDown, table.tablesorter thead tr .headerSortUp {
     background-color:#8DBDD8;

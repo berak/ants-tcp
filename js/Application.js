@@ -4,7 +4,6 @@
  */
 
 /**
- * @todo FEAT: keyboard +/- speed setting
  * @todo FEAT: info button showing a message box with game meta data
  * @todo FEAT: menu items: toggle graph/score bars, cpu use
  * @todo FEAT: setting for cpu usage
@@ -15,26 +14,43 @@
  * @todo COSMETIC: draw only visible ants when zoomed in
  */
 
+/**
+ * @namespace Enum for the different states, the visualizer can be in.
+ */
 LoadingState = {
+	/**
+	 * The visualizer is not currently loading a replay or map.
+	 * 
+	 * @const
+	 */
 	IDLE : 0,
+	/**
+	 * The visualizer is loading a replay or map and cannot take any load
+	 * requests.
+	 * 
+	 * @const
+	 */
 	LOADING : 1,
+	/**
+	 * The visualizer is currently cleaning up.
+	 * 
+	 * @const
+	 * @see Visualizer#cleanUp
+	 */
 	CLEANUP : 2
 };
 
-Key = {
-	LEFT : 37,
-	RIGHT : 39,
-	SPACE : 32,
-	PGUP : 33,
-	PGDOWN : 34,
-	HOME : 36,
-	END : 35,
-	PLUS : 187,
-	MINUS : 189
-};
-
 /**
+ * @class A simple location class that stores information about a rectangle.
  * @constructor
+ * @param {Number}
+ *        x left coordinate
+ * @param {Number}
+ *        y top coordinate
+ * @param {Number}
+ *        w width
+ * @param {Number}
+ *        h height
  */
 function Location(x, y, w, h) {
 	this.x = x;
@@ -42,12 +58,17 @@ function Location(x, y, w, h) {
 	this.w = w;
 	this.h = h;
 }
-Location.prototype.offX = function() {
-	return this.x + this.w;
-};
-Location.prototype.offY = function() {
-	return this.y + this.h;
-};
+
+/**
+ * Checks if a given coordinate pair is within the area described by this
+ * object.
+ * 
+ * @param {Number}
+ *        x left coordinate
+ * @param {Number}
+ *        y top coordinate
+ * @returns {Boolean} true, if the point is inside the rectangle
+ */
 Location.prototype.contains = function(x, y) {
 	return (x >= this.x && x < this.x + this.w && y >= this.y && y < this.y
 			+ this.h);
@@ -55,10 +76,12 @@ Location.prototype.contains = function(x, y) {
 
 /**
  * @class The main 'application' object that provides all necessary methods for
- *        the use in a web page.
+ *        the use in a web page. Usually you just construct an instance and then
+ *        call {@link Visualizer#loadReplayData} or
+ *        {@link Visualizer#loadReplayDataFromURI}.
  * @constructor
  * @param {Node}
- *        container the html element, that the visualizer will embed into
+ *        container the HTML element, that the visualizer will embed into
  * @param {String}
  *        dataDir This relative path to the visualizer data files. You will get
  *        an error message if you forget the tailing '/'.
@@ -70,250 +93,185 @@ Location.prototype.contains = function(x, y) {
  * @param {Number}
  *        h an optional maximum height or undefined
  * @param {Object}
- *        config an optional configuration; each field overrides the respective
- *        value in the user's configuration or the default
+ *        configOverrides an optional configuration; each field overrides the
+ *        respective value in the user's configuration or the default; see
+ *        {@link Config} for possible options
  */
-Visualizer = function(container, dataDir, interactive, w, h, config) {
-	/**
-	 * any generated DOM elements will be placed here
-	 * 
-	 * @private
+Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
+	var parameters, equalPos, value, i, text;
+	var key = undefined;
+	var vis = this;
+
+	/** @private */
+	this.loading = LoadingState.LOADING;
+	/*
+	 * First of all get our logging up and running, so we can print possible
+	 * error messages.
 	 */
+	/** @private */
 	this.container = container;
-	/**
-	 * contains the scaled map
-	 * 
-	 * @private
-	 */
-	this.map = new CanvasElementMap(this);
-	/**
-	 * Caches the fog of war pattern
-	 * 
-	 * @private
-	 */
-	this.fogPattern = new CanvasElementFogPattern(this);
-	/**
-	 * Caches the fog of war
-	 * 
-	 * @private
-	 */
-	this.fog = new CanvasElementFog(this, this.fogPattern);
-	/**
-	 * Caches the graphics of the map border
-	 * 
-	 * @private
-	 */
-	this.mapWithAnts = new CanvasElementMapWithAnts(this, this.map, this.fog);
-	/**
-	 * Caches the graphics of the map border
-	 * 
-	 * @private
-	 */
-	this.shiftedMap = new CanvasElementShiftedMap(this, this.mapWithAnts);
-	/**
-	 * Caches the mini map
-	 * 
-	 * @private
-	 */
-	this.miniMap = new CanvasElementMiniMap(this);
-	/**
-	 * Caches the score graph
-	 * 
-	 * @private
-	 */
-	this.scores = new CanvasElementStats(this, 'scores', 'scores');
-	/**
-	 * Caches the counts bar
-	 * 
-	 * @private
-	 */
-	this.counts = new CanvasElementStats(this, '# of ants', 'counts');
-	/**
-	 * array of precomputed turn data
-	 * 
-	 * @private
-	 */
-	this.turns = undefined;
-	/**
-	 * usable width for the visualizer
-	 * 
-	 * @private
-	 */
-	this.w = w;
-	/**
-	 * usable height for the visualizer
-	 * 
-	 * @private
-	 */
-	this.h = h;
-	/**
-	 * locations of elements on the screen
-	 * 
-	 * @private
-	 */
-	this.loc = {};
-	/**
-	 * size of an ant in pixels
-	 * 
-	 * @private
-	 */
-	this.scale = undefined;
-	/**
-	 * Options from URL GET parameters or the constructor arguments
-	 * 
-	 * @private
-	 */
-	this.options = {};
-	this.options['data_dir'] = dataDir;
-	this.options['interactive'] = !(interactive === false);
-	// read URL parameters and store them in the parameters object
-	var equalPos, value, key, i;
-	var parameters = window.location.href;
-	if ((i = parameters.indexOf('?')) !== -1) {
-		parameters = parameters.substr(i + 1).split('#')[0].split('&');
-		for (i = 0; i < parameters.length; i++) {
-			equalPos = parameters[i].indexOf('=');
-			key = parameters[i].substr(0, equalPos);
-			value = parameters[i].substr(equalPos + 1);
-			if (key === 'debug' || key === 'profile' || key === 'interactive') {
-				value = value == 'true' || value == '1';
-			} else if (key === 'row' || key === 'col' || key === 'turn') {
-				value = parseInt(value);
-				if (!(value >= 0)) value = 0;
-			} else if (key === 'config') {
-				config = JSON.parse(unescape(value));
-			}
-			this.options[key] = value;
-		}
+	while (container.hasChildNodes()) {
+		container.removeChild(container.lastChild);
 	}
-	// set default zoom to max if we are going to zoom in on a square
-	if (this.options['row'] !== undefined && this.options['col'] !== undefined) {
-		if (!config) config = {};
-		config['zoom'] = 1 << Math.ceil(Math.log(ZOOM_SCALE) / Math.LN2);
-	}
-	/**
-	 * presistable configuration values
-	 * 
-	 * @private
-	 */
-	this.config = new Config(config);
-	/**
-	 * manages playback commands and timing
-	 * 
-	 * @private
-	 */
-	this.director = new Director(this);
-	/**
-	 * @private
-	 */
-	this.mouseX = -1;
-	/**
-	 * @private
-	 */
-	this.mouseY = -1;
-	/**
-	 * @private
-	 */
-	this.mouseDown = 0;
-	/**
-	 * @private
-	 */
-	this.mouseOverVis = false;
-	/**
-	 * @private
-	 */
-	this.shiftX = 0;
-	/**
-	 * @private
-	 */
-	this.shiftY = 0;
-	/**
-	 * @private
-	 */
-	this.mapCenterX = 0;
-	/**
-	 * @private
-	 */
-	this.mapCenterY = 0;
-	/**
-	 * buttons
-	 * 
-	 * @private
-	 */
-	this.btnMgr = new ButtonManager(this);
-	/**
-	 * @private
-	 */
+	/** @private */
 	this.log = document.createElement('div');
-	var text = 'Loading visualizer...';
-	text += '<table>';
-	for (key in this.options) {
-		value = this.options[key];
-		text += '<tr><td>-&nbsp;</td><td>' + key + '&nbsp;&nbsp;</td><td><b>'
-				+ value + '&nbsp;&nbsp;</b></td><td><i>';
-		if (key == "data_dir") {
-			text += '(Image directory)';
-		}
-		text += '</i></td></tr>';
-	}
-	text += '</table>';
-	while (this.container.hasChildNodes()) {
-		this.container.removeChild(this.container.lastChild);
-	}
-	this.log.innerHTML = text;
 	this.container.appendChild(this.log);
-	/**
-	 * images used by the visualizer
-	 * 
-	 * @private
-	 */
-	this.imgMgr = new ImageManager((dataDir || '') + 'img/', this,
-			this.completedImages);
-	this.imgMgr.add('water.png');
-	this.imgMgr.add('mud.jpg');
-	this.imgMgr.add('ant.png');
-	this.imgMgr.add('playback.png');
-	this.imgMgr.add('fog.png');
-	this.imgMgr.add('toolbar.png');
-	this.imgMgr.add('food.png');
-	this.imgMgr.add('rank.png');
-	this.imgMgr.add('graph_options.png');
-	/**
-	 * the highest player count in a previous replay to avoid button repaints
-	 * 
-	 * @private
-	 */
-	this.colorizedPlayerCount = 0;
-	// state information that must be reset on error/reload
-	/**
-	 * @private
-	 */
-	this.replay = undefined;
-	/**
-	 * the main canvas
-	 * 
-	 * @private
-	 */
-	this.main = {};
-	/**
-	 * a hint text overlay
-	 * 
-	 * @private
-	 */
-	this.hint = '';
-	/**
-	 * @private
-	 */
-	this.fogPlayer = undefined;
-	/**
-	 * @private
-	 */
-	this.isStreaming = false;
-	this.loading = LoadingState.IDLE;
-	this.imgMgr.startRequests();
-};
+
+	// proceed with initialization
+	try {
+		/** @private */
+		this.map = new CanvasElementMap(this);
+		/** @private */
+		this.fogPattern = new CanvasElementFogPattern(this);
+		/** @private */
+		this.fog = new CanvasElementFog(this, this.fogPattern);
+		/** @private */
+		this.antsMap = new CanvasElementAntsMap(this, this.map, this.fog);
+		/** @private */
+		this.shiftedMap = new CanvasElementShiftedMap(this, this.antsMap);
+		/** @private */
+		this.miniMap = new CanvasElementMiniMap(this);
+		/** @private */
+		this.scores = new CanvasElementStats(this, 'scores', 'scores');
+		/** @private */
+		this.counts = new CanvasElementStats(this, '# of ants', 'counts');
+		/** @private */
+		this.turns = undefined;
+		/** @private */
+		this.w = w;
+		/** @private */
+		this.h = h;
+		/** @private */
+		this.loc = {};
+		/** @private */
+		this.scale = undefined;
+		/** @private */
+		this.config = new Config();
+		if (configOverrides) this.config.overrideFrom(configOverrides);
+		/** @private */
+		this.options = {};
+		this.options['data_dir'] = dataDir;
+		this.options['interactive'] = !(interactive === false);
+		// read URL parameters and store them in the parameters object
+		parameters = window.location.href;
+		if ((i = parameters.indexOf('?')) !== -1) {
+			parameters = parameters.substr(i + 1).split('#')[0].split('&');
+			for (i = 0; i < parameters.length; i++) {
+				equalPos = parameters[i].indexOf('=');
+				key = parameters[i].substr(0, equalPos);
+				value = parameters[i].substr(equalPos + 1);
+				if (key === 'debug' || key === 'profile'
+						|| key === 'interactive') {
+					value = value == 'true' || value == '1';
+				} else if (key === 'row' || key === 'col' || key === 'turn') {
+					value = parseInt(value);
+					if (!(value >= 0)) value = 0;
+				} else if (key === 'config') {
+					this.config.overrideFrom(JSON.parse(unescape(value)));
+				}
+				this.options[key] = value;
+			}
+		}
+		// set default zoom to max if we are going to zoom in on a square
+		if (this.options['row'] !== undefined
+				&& this.options['col'] !== undefined) {
+			this.config['zoom'] = 1 << Math.ceil(Math.log(ZOOM_SCALE)
+					/ Math.LN2);
+		}
+		/** @private */
+		this.director = new Director(this);
+		/** @private */
+		this.mouseX = -1;
+		/** @private */
+		this.mouseY = -1;
+		/** @private */
+		this.mouseDown = 0;
+		/** @private */
+		this.mouseOverVis = false;
+		/** @private */
+		this.shiftX = 0;
+		/** @private */
+		this.shiftY = 0;
+		/** @private */
+		this.mapCenterX = 0;
+		/** @private */
+		this.mapCenterY = 0;
+		/** @private */
+		this.btnMgr = new ButtonManager(this);
+
+		// print out the configuration
+		text = 'Loading visualizer...';
+		text += Html.table(function() {
+			var table = '';
+			var key = undefined;
+			for (key in vis.options) {
+				var value = vis.options[key];
+				table += Html.tr(function() {
+					return Html.td(function() {
+						return Html.bold(key);
+					}) + Html.td(value) + Html.td(function() {
+						var result = '<i>';
+						if (key === 'data_dir') result += '(Image directory)';
+						return result + '</i>';
+					});
+				});
+			}
+			return table;
+		});
+		this.log.innerHTML = text;
+		text = (dataDir || '') + 'img/';
+
+		/** @private */
+		this.replay = undefined;
+		/** @private */
+		this.replayStr = undefined;
+		/** @private */
+		this.replayReq = undefined;
+		/**
+		 * the main canvas
+		 * 
+		 * @private
+		 */
+		this.main = {};
+		/**
+		 * a hint text overlay
+		 * 
+		 * @private
+		 */
+		this.hint = '';
+		/** @private */
+		this.fogPlayer = undefined;
+		/** @private */
+		this.isStreaming = false;
+		/** @private */
+		this.imgMgr = new ImageManager(text, this, this.completedImages);
+		this.imgMgr.add('water.png');
+		this.imgMgr.add('playback.png');
+		this.imgMgr.add('fog.png');
+		this.imgMgr.add('toolbar.png');
+		this.imgMgr.add('rank.png');
+		this.imgMgr.add('graph_options.png');
+
+		// start loading images in the background and wait
+		this.loading = LoadingState.IDLE;
+		this.imgMgr.startRequests();
+	} catch (error) {
+		this.exceptionOut(error, false);
+		throw error;
+	}
+}
+
 /**
+ * Prints a message on the screen and then executes a function. Usually the
+ * screen is not updated until the current thread of execution has finished. To
+ * work around that limitation, this method adds the function to be called to
+ * the browser's timer queue. Additionally any thrown errors are also printed.
+ * 
  * @private
+ * @param {String}
+ *        log a message to be logged before executing the function
+ * @param {Function}
+ *        func a function to be called after displaying the message
  */
 Visualizer.prototype.progress = function(log, func) {
 	if (this.loading !== LoadingState.LOADING) return;
@@ -323,23 +281,11 @@ Visualizer.prototype.progress = function(log, func) {
 		try {
 			func();
 		} catch (error) {
-			// (for Firefox Java errors:) if error is just a string, wrap it
-			// into an object
-			if (typeof error == 'string') error = {
-				message : error
-			};
-			var msg = '';
-			for ( var key in error) {
-				var escaped = new String(error[key]).replace('&', '&amp;');
-				escaped = escaped.replace('<', '&lt;').replace('>', '&gt;');
-				msg += '<p><u><b>Error ' + key + ':</b></u>\n' + escaped
-						+ '</p>';
-			}
-			vis.errorOut(msg);
+			vis.exceptionOut(error, true);
 			var selectedPosX = 0;
 			var selectedPosY = 0;
 			var obj = vis.log;
-			if (vis.log.offsetParent) do {
+			if (obj.offsetParent) do {
 				selectedPosX += obj.offsetLeft;
 				selectedPosY += obj.offsetTop;
 			} while ((obj = obj.offsetParent))
@@ -347,38 +293,94 @@ Visualizer.prototype.progress = function(log, func) {
 		}
 	}, 50);
 };
+
 /**
- * Places a paragraph with a message in the visualizer dom element.
+ * Places a paragraph with a message in the visualizer DOM element.
  * 
- * @param {string}
- *        text the message text
  * @private
+ * @param {String}
+ *        text the message text
  */
 Visualizer.prototype.logOut = function(text) {
-	text = text.replace(/\n/g, '<br>');
-	this.log.innerHTML += text + '<br>';
+	this.log.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
 };
+
 /**
- * Stops loading, cleans up the instance and calls logOut with the text in red.
+ * Stops loading, cleans up the instance and calls {@link Visualizer#logOut}
+ * with the text in red.
  * 
+ * @private
  * @param {string}
  *        text the error message text
- * @private
+ * @param {Boolean}
+ *        cleanUp whether the visualizer should try to reset itself; this is
+ *        only useful if the error is not coming from the constructor.
  */
-Visualizer.prototype.errorOut = function(text) {
-	this.logOut('<font color="red">' + text + '</font>');
-	this.cleanUp();
+Visualizer.prototype.errorOut = function(text, cleanUp) {
+	this.logOut('<font style="color:red">' + text + '</font>');
+	if (cleanUp) this.cleanUp();
 };
+
 /**
+ * Converts a JavaScript Error into a HTML formatted string representation and
+ * prints that on the web page.
+ * 
+ * @private
+ * @param {Error|String}
+ *        error a thrown error or string
+ * @param {Boolean}
+ *        cleanUp whether the visualizer should try to reset itself; this is
+ *        only useful if the error is not coming from the constructor.
+ */
+Visualizer.prototype.exceptionOut = function(error, cleanUp) {
+	var msg;
+	var key = undefined;
+	if (typeof error == 'string') {
+		this.exceptionOut({
+			message : error
+		}, cleanUp);
+		return;
+	}
+	msg = '<h4><u>' + (error.name ? error.name : 'Error') + '</u></h4>';
+	msg += Html.table(function() {
+		var escaped;
+		var table = '';
+		for (key in error) {
+			if (key !== 'name') {
+				try {
+					escaped = new String(error[key]);
+					escaped = escaped.replace('&', '&amp;');
+					escaped = escaped.replace('<', '&lt;');
+					escaped = escaped.replace('>', '&gt;');
+					table += Html.tr(function() {
+						return Html.td(function() {
+							return Html.bold(key);
+						}) + Html.td(escaped);
+					});
+				} catch (e) {
+					// catch FireFox UnknownClass-wrapper errors silently
+				}
+			}
+		}
+		return table;
+	});
+	this.errorOut(msg, cleanUp);
+};
+
+/**
+ * Resets the visualizer and associated objects to an initial state. This method
+ * is also called in case of an error.
+ * 
  * @private
  */
 Visualizer.prototype.cleanUp = function() {
 	this.loading = LoadingState.CLEANUP;
 	this.imgMgr.cleanUp();
 	this.director.cleanUp();
-	if (this.replay && this.replay instanceof XMLHttpRequest)
-		this.replay.abort();
+	if (this.replayReq) this.replayReq.abort();
 	this.replay = undefined;
+	this.replayStr = undefined;
+	this.replayReq = undefined;
 	if (this.main.canvas) {
 		if (this.container.firstChild === this.main.canvas) {
 			this.container.removeChild(this.main.canvas);
@@ -392,15 +394,23 @@ Visualizer.prototype.cleanUp = function() {
 	window.onresize = null;
 	this.log.style.display = 'block';
 };
+
+/**
+ * This is called before a replay or map is loaded to ensure the visualizer is
+ * in an idle state at that time. It then sets the state to {@link LoadingState}.LOADING.
+ * 
+ * @private
+ * @returns {Boolean} true, if the visualizer was idle.
+ */
 Visualizer.prototype.preload = function() {
 	if (this.loading !== LoadingState.IDLE) return true;
-	this.log.innerHTML = '';
 	this.cleanUp();
 	this.loading = LoadingState.LOADING;
 	return false;
 };
+
 /**
- * Loads a replay file located on the same server using a XMLHttpRequest.
+ * Loads a replay or map file located on the same server using a XMLHttpRequest.
  * 
  * @param {string}
  *        file the relative file name
@@ -408,28 +418,31 @@ Visualizer.prototype.preload = function() {
 Visualizer.prototype.loadReplayDataFromURI = function(file) {
 	if (this.preload()) return;
 	var vis = this;
-	this.progress('Fetching replay from: <i>' + file + '</i>...', function() {
-		vis.replay = new XMLHttpRequest();
-		vis.replay.onreadystatechange = function() {
-			if (vis.replay.readyState === 4) {
-				if (vis.loading === LoadingState.LOADING) {
-					if (vis.replay.status === 200) {
-						vis.replay = '' + vis.replay.responseText;
-						vis.loadParseReplay();
-					} else {
-						vis.errorOut('Status ' + vis.replay.status + ': '
-								+ vis.replay.statusText);
+	this.progress('Fetching replay from: ' + Html.italic(String(file)) + '...',
+			function() {
+				var request = new XMLHttpRequest();
+				vis.replayReq = request;
+				request.onreadystatechange = function() {
+					if (request.readyState === 4) {
+						if (vis.loading === LoadingState.LOADING) {
+							if (request.status === 200) {
+								vis.replayStr = '' + request.responseText;
+								vis.replayReq = undefined;
+								vis.loadParseReplay();
+							} else {
+								vis.errorOut('Status ' + request.status + ': '
+										+ request.statusText, true);
+							}
+						}
 					}
+				};
+				request.open("GET", file);
+				if (vis.options['debug']) {
+					request.setRequestHeader('Cache-Control', 'no-cache');
 				}
-			}
-		};
-		vis.replay.open("GET", file);
-		if (vis.options['debug']) {
-			vis.replay.setRequestHeader('Cache-Control', 'no-cache');
-		}
-		vis.replay.send();
-		vis.loadCanvas(true);
-	});
+				request.send();
+				vis.loadCanvas(true);
+			});
 };
 /**
  * Loads a replay string directly.
@@ -439,7 +452,7 @@ Visualizer.prototype.loadReplayDataFromURI = function(file) {
  */
 Visualizer.prototype.loadReplayData = function(data) {
 	if (this.preload()) return;
-	this.replay = data;
+	this.replayStr = data;
 	this.loadCanvas(true);
 };
 Visualizer.prototype.streamingInit = function() {
@@ -477,21 +490,18 @@ Visualizer.prototype.streamingStart = function() {
 Visualizer.prototype.loadParseReplay = function() {
 	var vis = this;
 	this.progress('Parsing the replay...', function() {
-		if (!vis.replay) {
+		if (!(vis.replay || vis.replayReq || vis.replayStr)) {
 			if (vis.loading !== LoadingState.CLEANUP) {
 				throw new Error('Replay is undefined.');
 			}
-		} else if (vis.replay instanceof Replay) { // has just been parsed
+		} else if (vis.replay) { // has just been parsed
 			return;
-		} else if (typeof vis.replay == 'string') { // string only
-			vis.replay = new Replay(vis.replay, vis.options['debug'],
+		} else if (vis.replayStr) { // string only
+			vis.replay = new Replay(vis.replayStr, vis.options['debug'],
 					vis.options['user']);
-		} else if (vis.replay instanceof XMLHttpRequest) { // wait for the
-			// reply
+			vis.replayStr = undefined;
+		} else if (vis.replayReq) { // wait for the reply
 			return;
-		} else {
-			throw new Error('Something unknown is in the replay variable: '
-					+ vis.replay);
 		}
 		vis.tryStart();
 	});
@@ -506,6 +516,7 @@ Visualizer.prototype.loadCanvas = function(prompt) {
 	this.progress(prompt ? 'Creating canvas...' : undefined, function() {
 		if (!vis.main.canvas) {
 			vis.main.canvas = document.createElement('canvas');
+			vis.main.canvas.style.display = 'none';
 		}
 		var c = vis.main.canvas;
 		vis.main.ctx = c.getContext('2d');
@@ -520,7 +531,7 @@ Visualizer.prototype.loadCanvas = function(prompt) {
  */
 Visualizer.prototype.completedImages = function(error) {
 	if (error) {
-		this.errorOut(error);
+		this.errorOut(error, true);
 	} else {
 		this.tryStart();
 	}
@@ -532,10 +543,9 @@ Visualizer.prototype.completedImages = function(error) {
 Visualizer.prototype.tryStart = function() {
 	var bg, stop, i;
 	var vis = this;
-	if (this.replay === undefined) return;
 	// we need to parse the replay, unless it has been parsed by the
 	// XmlHttpRequest callback
-	if (this.replay instanceof Replay) {
+	if (this.replay) {
 		if (this.main.ctx && !this.imgMgr.error && !this.imgMgr.pending) {
 			vis = this;
 			if (this.options['interactive']) {
@@ -543,7 +553,7 @@ Visualizer.prototype.tryStart = function() {
 				if (!vis.btnMgr.groups['playback']) {
 					if (this.replay.hasDuration) {
 						bg = vis.btnMgr.addImageGroup('playback',
-								vis.imgMgr.images[3],
+								vis.imgMgr.images[1],
 								ImageButtonGroup.HORIZONTAL,
 								ButtonGroup.MODE_NORMAL, 2, 0);
 						bg.addButton(3, function() {
@@ -579,10 +589,10 @@ Visualizer.prototype.tryStart = function() {
 						bg.addSpace(32);
 						bg.addButton(2, function() {
 							vis.director.gotoTick(vis.director.duration);
-						}, 'jump to end of last turn');
+						}, 'jump to end of the last turn');
 					}
 					bg = vis.btnMgr.addImageGroup('toolbar',
-							vis.imgMgr.images[5], ImageButtonGroup.VERTICAL,
+							vis.imgMgr.images[3], ImageButtonGroup.VERTICAL,
 							ButtonGroup.MODE_NORMAL, 2, 0);
 					if (this.config.hasLocalStorage()) {
 						bg.addButton(0, function() {
@@ -640,14 +650,11 @@ Visualizer.prototype.tryStart = function() {
 				for (i = 0; i < this.replay.players; i++) {
 					colors.push(this.replay.meta['playercolors'][i]);
 				}
-				if (this.colorizedPlayerCount < this.replay.players) {
-					this.colorizedPlayerCount = this.replay.players;
-					this.imgMgr.colorize(4, colors);
-					this.imgMgr.colorize(2, colors);
-				}
+				this.imgMgr.colorize(4, colors);
+				this.imgMgr.colorize(2, colors);
 				if (this.replay.hasDuration) {
 					bg = this.btnMgr.addImageGroup('fog',
-							this.imgMgr.patterns[4], ImageButtonGroup.VERTICAL,
+							this.imgMgr.patterns[2], ImageButtonGroup.VERTICAL,
 							ButtonGroup.MODE_RADIO, 2);
 					var buttonAdder = function(fog) {
 						return bg
@@ -681,7 +688,7 @@ Visualizer.prototype.tryStart = function() {
 				this.director.onstate = function() {
 					var btn = vis.btnMgr.groups['playback'].buttons[4];
 					btn.offset = (vis.director.playing() ? 7 : 4)
-							* vis.imgMgr.images[3].height;
+							* vis.imgMgr.images[1].height;
 					if (btn === vis.btnMgr.pinned) {
 						vis.btnMgr.pinned = null;
 					}
@@ -754,6 +761,7 @@ Visualizer.prototype.tryStart = function() {
 						* ZOOM_SCALE;
 			}
 			this.log.style.display = 'none';
+			this.main.canvas.style.display = 'inline';
 			this.loading = LoadingState.IDLE;
 			this.setFullscreen(this.config['fullscreen']);
 			if (this.replay.hasDuration) {
@@ -764,7 +772,7 @@ Visualizer.prototype.tryStart = function() {
 				}
 			}
 		}
-	} else if (!(this.replay instanceof XMLHttpRequest)) {
+	} else if (!this.replayReq) {
 		this.loadParseReplay();
 	}
 };
@@ -808,20 +816,20 @@ Visualizer.prototype.addPlayerButtons = function() {
 			k++;
 		order[k] = i;
 	}
-	var buttonAdder = function(i) {
-		var color = vis.replay.htmlPlayerColors[i];
+	var buttonAdder = function(idx) {
+		var color = vis.replay.htmlPlayerColors[idx];
 		var func = null;
 		if (vis.replay.meta['user_url'] && vis.replay.meta['user_ids']
-				&& vis.replay.meta['user_ids'][i] !== undefined) {
+				&& vis.replay.meta['user_ids'][idx] !== undefined) {
 			func = function() {
 				window.location.href = vis.replay.meta['user_url'].replace('~',
-						vis.replay.meta['user_ids'][i]);
+						vis.replay.meta['user_ids'][idx]);
 			};
 		}
-		var caption = vis.replay.meta['playernames'][i];
-		caption = ranks[i] + '. ' + caption;
+		var caption = vis.replay.meta['playernames'][idx];
+		caption = ranks[idx] + '. ' + caption;
 		if (vis.replay.meta['status']) {
-			caption += ' (' + vis.statusToGlyph(i) + ')';
+			caption += ' (' + vis.statusToGlyph(idx) + ')';
 		}
 		bg.addButton(caption, color, func);
 	};
@@ -854,11 +862,6 @@ Visualizer.prototype.calculateCanvasSize = function() {
 		// Non-IE
 		result.width = window.innerWidth;
 		result.height = window.innerHeight;
-	} else if (document.documentElement
-			&& (document.documentElement.clientWidth || document.documentElement.clientHeight)) {
-		// IE 6+ in 'standards compliant mode'
-		result.width = document.documentElement.clientWidth;
-		result.height = document.documentElement.clientHeight;
 	}
 	var embed = (window.isFullscreenSupported && !window
 			.isFullscreenSupported())
@@ -904,11 +907,11 @@ Visualizer.prototype.setFullscreen = function(enable) {
 };
 Visualizer.prototype.setZoom = function(zoom) {
 	var oldScale = this.scale;
-	zoom = Math.max(1, zoom);
-	this.config['zoom'] = zoom;
+	var effectiveZoom = Math.max(1, zoom);
+	this.config['zoom'] = effectiveZoom;
 	this.scale = Math.max(1, Math.min((this.loc.vis.w - 20)
 			/ (this.replay.cols), (this.loc.vis.h - 20) / (this.replay.rows))) | 0;
-	this.scale = Math.min(ZOOM_SCALE, this.scale * zoom);
+	this.scale = Math.min(ZOOM_SCALE, this.scale * effectiveZoom);
 	if (oldScale) {
 		this.shiftX = (this.shiftX * this.scale / oldScale) | 0;
 		this.shiftY = (this.shiftY * this.scale / oldScale) | 0;
@@ -917,7 +920,7 @@ Visualizer.prototype.setZoom = function(zoom) {
 			* this.replay.rows);
 	this.map.x = ((this.loc.vis.w - this.map.w) / 2 + this.loc.vis.x) | 0;
 	this.map.y = ((this.loc.vis.h - this.map.h) / 2 + this.loc.vis.y) | 0;
-	this.mapWithAnts.setSize(this.map.w, this.map.h);
+	this.antsMap.setSize(this.map.w, this.map.h);
 	this.fog.setSize(Math.min(this.map.w, this.loc.vis.w), Math.min(this.map.h,
 			this.loc.vis.h));
 	if (this.options['interactive']) {
@@ -925,7 +928,7 @@ Visualizer.prototype.setZoom = function(zoom) {
 		zoomInBtn.enabled = !(this.scale === ZOOM_SCALE);
 		zoomInBtn.draw();
 		var zoomOutBtn = this.btnMgr.groups['toolbar'].getButton(3);
-		zoomOutBtn.enabled = !(zoom === 1);
+		zoomOutBtn.enabled = !(effectiveZoom === 1);
 		zoomOutBtn.draw();
 	}
 };
@@ -1025,42 +1028,6 @@ Visualizer.prototype.showFog = function(fogPlayer) {
 		this.fogPlayer = fogPlayer;
 	}
 	this.director.draw();
-};
-/**
- * @private
- */
-Visualizer.prototype.interpolate = function(array1, array2, delta) {
-	if (delta === 0) return array1;
-	var result = new Array(array1.length);
-	for ( var i = 0; i < result.length; i++) {
-		result[i] = (1.0 - delta) * array1[i] + delta * array2[i];
-	}
-	return result;
-};
-/**
- * @private helper function to draw items wrapped around the map borders
- */
-Visualizer.prototype.drawWrapped = function(x, y, w, h, colPixels, rowPixels,
-		ctx, func, args) {
-	var delta_x, delta_y, tx, ty, sum;
-	if (x < 0 || y < 0 || x + w > colPixels || y + h > rowPixels) {
-		ctx.save();
-		delta_x = -Math.floor((x + w) / colPixels) * colPixels;
-		delta_y = -Math.floor((y + h) / rowPixels) * rowPixels;
-		ctx.translate(delta_x, delta_y);
-		for (ty = y + delta_y; ty < rowPixels; ty += rowPixels) {
-			sum = 0;
-			for (tx = x + delta_x; tx < colPixels; tx += colPixels) {
-				func.apply(this, args);
-				ctx.translate(colPixels, 0);
-				sum -= colPixels;
-			}
-			ctx.translate(sum, rowPixels);
-		}
-		ctx.restore();
-	} else {
-		func.apply(this, args);
-	}
 };
 /**
  * @private
@@ -1212,7 +1179,7 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
 						* this.scale;
 			}
 			var centerBtn = this.btnMgr.groups['toolbar'].getButton(4);
-			centerBtn.enabled = this.shiftX || this.shiftY;
+			centerBtn.enabled = this.shiftX !== 0 || this.shiftY !== 0;
 			centerBtn.draw();
 			this.director.draw();
 		} else {
@@ -1246,8 +1213,6 @@ Visualizer.prototype.mousePressed = function() {
 			}
 		}
 		this.mouseMoved(this.mouseX, this.mouseY);
-	} else {
-		this.btnMgr.mouseDown();
 	}
 };
 Visualizer.prototype.mouseReleased = function() {
@@ -1263,41 +1228,42 @@ Visualizer.prototype.mouseExited = function() {
 Visualizer.prototype.keyPressed = function(key) {
 	var d = this.director;
 	switch (key) {
-	case Key.SPACE:
-		d.playStop();
-		break;
-	case Key.LEFT:
-		d.gotoTick(Math.ceil(d.position) - 1);
-		break;
-	case Key.RIGHT:
-		d.gotoTick(Math.floor(d.position) + 1);
-		break;
-	case Key.PGUP:
-		d.gotoTick(Math.ceil(d.position) - 10);
-		break;
-	case Key.PGDOWN:
-		d.gotoTick(Math.floor(d.position) + 10);
-		break;
-	case Key.HOME:
-		d.gotoTick(0);
-		break;
-	case Key.END:
-		d.gotoTick(d.duration);
-		break;
-	case Key.PLUS:
-		this.btnMgr.groups['toolbar'].getButton(6).onclick();
-		break;
-	case Key.MINUS:
-		this.btnMgr.groups['toolbar'].getButton(7).onclick();
-		break;
-	default:
-		switch (String.fromCharCode(key)) {
-		case 'F':
-			this.setFullscreen(!this.config['fullscreen']);
+		case Key.SPACE:
+			d.playStop();
+			break;
+		case Key.LEFT:
+			d.gotoTick(Math.ceil(d.position) - 1);
+			break;
+		case Key.RIGHT:
+			d.gotoTick(Math.floor(d.position) + 1);
+			break;
+		case Key.PGUP:
+			d.gotoTick(Math.ceil(d.position) - 10);
+			break;
+		case Key.PGDOWN:
+			d.gotoTick(Math.floor(d.position) + 10);
+			break;
+		case Key.HOME:
+			d.gotoTick(0);
+			break;
+		case Key.END:
+			d.gotoTick(d.duration);
+			break;
+		case Key.PLUS:
+		case Key.PLUS_OPERA:
+			this.btnMgr.groups['toolbar'].getButton(6).onclick();
+			break;
+		case Key.MINUS:
+			this.btnMgr.groups['toolbar'].getButton(7).onclick();
 			break;
 		default:
-			return false;
-		}
+			switch (String.fromCharCode(key)) {
+				case 'F':
+					this.setFullscreen(!this.config['fullscreen']);
+					break;
+				default:
+					return false;
+			}
 	}
 	return true;
 };
@@ -1375,8 +1341,7 @@ Visualizer.prototype.getMouseRow = function() {
 	return this.mouseRow;
 };
 
-// make some exported functions known to Closure Compiler
+// make some exported functions known to JS minifiers
 
 Visualizer.prototype['loadReplayData'] = Visualizer.prototype.loadReplayData;
-Visualizer.prototype['loadReplayDataFromPHP'] = Visualizer.prototype.loadReplayDataFromPHP;
 Visualizer.prototype['loadReplayDataFromURI'] = Visualizer.prototype.loadReplayDataFromURI;

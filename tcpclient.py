@@ -81,8 +81,7 @@ def tcp(host, port, bot_command, user, options):
             print( line )            
             if line.startswith("INFO:"): # not meant for the bot
                 if (line.find("already running")>0) or (line.find("already queued")>0): 
-                    time_out += 10.0 + 10.0*random.random()
-                    continue
+                    time_out += 10.0 + 10.0*random.random() ## penalty for getting eliminated, but still trying to be first in the upcoming game.
                 continue
                 
             bot_input += line + "\n"
@@ -153,8 +152,8 @@ def main():
     for i in range(rounds):
         tcp(host, port, botpath, pname, {})
         
-    # keep konsole window open (for debugging)
-    sys.stdin.read()
+    #~ # keep konsole window open (for debugging)
+    #~ sys.stdin.read()
     
 if __name__ == "__main__":
     main()
