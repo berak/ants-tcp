@@ -22,7 +22,6 @@ Smoothie.prototype.update = function( sarr )
 function updateTimeLine()
 {     
   //~ get("http://b2.ants--game.appspot.com/stats/s");
-  //~ url = "http://localhost:2080/stats";
   url = "/stats";
   
   var http =  ( window.XMLHttpRequest 
@@ -41,37 +40,21 @@ function updateTimeLine()
       var p = s.split(" ");
       machine1.update( [p[0],p[1]] );        
       machine2.update( [p[2],p[3],p[4],p[5]] );        
-     txt="" 
-      //~ var txt = "<table>" 
-      //~ for ( var i=0; i<p.length-2; i++ ) {
-          //~ if ( i%6 == 0 ) {
-            //~ if ( i > 0 ) {
-              //~ txt += "</tr>"
-            //~ }
-            //~ txt += "<tr>"
-          //~ }
-          //~ elm = p[i+2]
-          //~ txt += "<td>" + elm + "</td>"
-      //~ }
-      //~ txt += "</tr></table>"
-      //~ document.getElementById("players").innerHTML = txt
-     // document.getElementById("dg").innerHTML = t1 + " : " + t2 + " : " + t;
-     // document.getElementById("dg").innerHTML = t1 + " : " + t2 + " : " + t;
     }
   }
 }
 
 function loadTabs()
 {
-  machine1 = new Smoothie("chart", 3000);
+  machine1 = new Smoothie("chart", 2500);
   machine1.add( "Players", '255, 0, 0', 4 );
   machine1.add( "Games",   '0, 255, 0', 3 );
-  machine2 = new Smoothie("gstat", 3000);
+  machine2 = new Smoothie("gstat", 2500);
   machine2.add( "Survived",   '0, 255, 0', 3 );
   machine2.add( "Eliminated", '255, 0, 0', 4 );
   machine2.add( "Timeout", '0, 0, 255', 4 );
   machine2.add( "Crashed", '0, 255, 255', 4 );
   setInterval(function() {
    updateTimeLine();
-  }, 3000);        
+  }, 2500);        
 }

@@ -290,15 +290,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <font size=1 color='#f00'>Players</font>
             <br> &nbsp; &nbsp; &nbsp; 
             <canvas id="chart" width="800" height="100"></canvas>            
-            <br> &nbsp; &nbsp; &nbsp; 
+            <br><br><br> &nbsp; &nbsp; &nbsp; 
             <font size=1 color='#0f0'>Survived</font>
             <font size=1 color='#f00'>Eliminated</font>
             <font size=1 color='#00f'>Timeout</font>
             <font size=1 color='#0ff'>Crashed</font>
             <br> &nbsp; &nbsp; &nbsp; 
             <canvas id="gstat" width="800" height="100"></canvas>            
-            <div id="players"><br><br><br><br><br><br><br></div>
-            <div id="games"><br><br><br><br><br><br><br></div>
             <script type="text/javascript" src="/js/smoothie.js"></script>
             <script type="text/javascript" src="/js/statistics.js"></script>
             <script> loadTabs(); </script>
@@ -486,16 +484,21 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         if not fname in self.server.cache:
             try:    
                 f = open(fname,"rb")
-                self.server.cache[fname] = f.read()
+                output = f.read()
                 f.close()
                 log.info("added static %s to cache." % fname)
+                ## don't cache replays, please !
+                if match.group(0).find("replay") < 0:
+                    self.server.cache[fname] = output
             except:
                 self.send_error(404, 'File Not Found: %s' % self.path)
                 return
+        else:
+            output = self.server.cache[fname] 
         self.send_response(200)
         self.send_header('Content-type',mime_type)
         self.end_headers()
-        self.wfile.write(self.server.cache[fname])
+        self.wfile.write(output)
         
         
     def do_GET(self):

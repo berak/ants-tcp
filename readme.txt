@@ -17,6 +17,7 @@ lots of things will need further tweaking:
 	it uses no pairing at all,  just: create a game, gather players, start it.
 	just blindly starting new games / threads without looking at system resources
 	
-finally, this was the original PW code:
-	'https://github.com/McLeopold/TCPServer', 
-	*link to dhartmei's c-src
+	
+this would have never happened without the original PW code:
+	https://github.com/McLeopold/TCPServer
+	http://www.benzedrine.cx/planetwars/server.tar.gz  /  http://www.benzedrine.cx/planetwars/tcp.c
