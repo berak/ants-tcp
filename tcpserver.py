@@ -458,8 +458,17 @@ class TCPGameServer(object):
         book.games.add(g.id)
         #~ self.active_games[g.id] = g
         return g
-                
-    badwords=["porn","pr0n","pron","dick","tits","hitler"]
+
+    def kill_client(self,client, message):
+        try:                       
+            log.info(message)
+            client.sendall("INFO: " + message + "\nend\ngo\n")
+            client.close()
+            client = None
+        except:
+            pass
+        
+    badwords=["porn","pr0n","pron","dick","tits","hitler","fuck"]
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
@@ -483,35 +492,15 @@ class TCPGameServer(object):
                     password = data[2]
                     
                     if name in self.badwords:
-                        log.warning('we don\'t want user_names like %s here.' % (name))
-                        try:                       
-                            client.sendall("INFO: can you think of another name than '%s' please ?\nend\ngo\n" % name )
-                            client.close()
-                            client = None
-                        except:
-                            pass
+                        self.kill_client("%s is already running a game." % name )
                         continue
-                        
-                    # if in 'single game per player' mode, just reject the connection here..
+                    # if in 'single game per player(name)' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
-                        log.info('user %s must wait' % (name))
-                        try:                       
-                            client.sendall("INFO: %s is already running a game.\nend\ngo\n" % name )
-                            client.close()
-                            client = None
-                        except:
-                            pass
+                        self.kill_client("%s is already running a game.\nend\ngo\n" % name )
                         continue
-                        
                     # already in next_game ?
-                    if name in self.next_game.players:
-                        log.warning('user %s tried to connect twice: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
-                        try:                       
-                            client.sendall("INFO: you are already queued for game %d\nend\ngo\n" % self.next_game.id )
-                            client.close()
-                            client = None
-                        except:
-                            pass
+                    if name in self.next_game.players:                        
+                        self.kill_client('%s is already queued for game %d' % (name, self.next_game.id) )
                         continue
                         
                     # start game if enough players joined
