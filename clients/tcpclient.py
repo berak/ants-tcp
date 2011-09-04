@@ -17,7 +17,7 @@ USAGE="""
     you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
     
     player_nick and password may only contain ascii_letters, '_', and numbers
-    
+        http://xkcd.com/327/  (don't try, there's no sql in here.)
     
 """
 

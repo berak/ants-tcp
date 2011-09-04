@@ -62,8 +62,6 @@ def main():
 	# all opts in one dict, so we can show them on http
 	opts = {
 		## tcp opts:
-		'serial': False,
-		'verbose': False,
 		'turns':500,
 		'loadtime': 5000, 
 		'turntime': 5000,
@@ -76,7 +74,7 @@ def main():
 		## non-ants related tcp opts
 		'skill': 'py',			# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
-		'db_max_games': 750,	# how many games should be kept on the webserver
+		'db_max_games': 750,	# how many game_infos should be kept in memory
 		'multi_games': 'True',  # allow users to play multiple games at the same time
 								# if set to False, players will have to wait until their latest game ended
 		## web opts:

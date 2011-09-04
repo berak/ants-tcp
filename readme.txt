@@ -11,6 +11,7 @@ start it by (editing and) running main.py
 the default trueskill impl is trueskill.py, 
 if you also got java installed, you'll want to use jskills.
 
+
 i'm shure, this contains bugs...
 lots of things will need further tweaking:
 	should bots, that got eliminated be kept to the end or released as early as possible?

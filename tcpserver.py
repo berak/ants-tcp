@@ -459,7 +459,7 @@ class TCPGameServer(object):
         #~ self.active_games[g.id] = g
         return g
                 
-                
+    badwords=[]
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
@@ -481,6 +481,18 @@ class TCPGameServer(object):
                     data = data.split(" ")
                     name = data[1]
                     password = data[2]
+                    
+                    if name in badwords:
+                        log.warning('we don\'t want user_names like %s here.' % (name))
+                        try:                       
+                            client.sendall("INFO: can you think of another name than '%s' please ?\nend\ngo\n" % name )
+                            client.close()
+                            client = None
+                        except:
+                            pass
+                        continue
+                        
+                    # if in 'single game per player' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
                         log.info('user %s must wait' % (name))
                         try:                       
@@ -490,6 +502,8 @@ class TCPGameServer(object):
                         except:
                             pass
                         continue
+                        
+                    # already in next_game ?
                     if name in self.next_game.players:
                         log.warning('user %s tried to connect twice: %d/%d to game %d' % (name,len(self.next_game.bots)+1,self.next_game.nplayers,self.next_game.id))
                         try:                       
@@ -499,6 +513,7 @@ class TCPGameServer(object):
                         except:
                             pass
                         continue
+                        
                     # start game if enough players joined
                     avail = self.addplayer( self.next_game, name, password, client )
                     if avail==-1:

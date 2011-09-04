@@ -67,13 +67,10 @@ table.tablesorter tbody tr.odd td {
     background-color:#F0F0F6;
 }
 table.tablesorter thead tr .headerSortUp {
-    background-color:#8D8DD8;
+    background-color:#AAB;
 }
 table.tablesorter thead tr .headerSortDown {
-    background-color:#8DBDD8;
-}
-table.tablesorter thead tr .headerSortDown, table.tablesorter thead tr .headerSortUp {
-    background-color:#8DBDD8;
+    background-color:#BBC;
 }
 """,
 'dark':"""
@@ -103,6 +100,7 @@ table.tablesorter tbody td tfoot {
 """
 }
 
+table_lines = 100
 
 class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
@@ -136,11 +134,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 <script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
                 """
         head += """</head><body><b> &nbsp;&nbsp;&nbsp;
-        <a href='/' name=top> Latest Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/settings'> Settings </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/tcpclient.py' title='get the python client'> Client.py </a>
+        <a href='/clients/tcpclient.py' title='get the python client'> Client.py </a>
         <br><p></b>
         """
         return head
@@ -225,10 +223,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th><th>Last Seen</th></tr></thead>"""
         
     def page_counter(self,url,nelems):
-        if nelems < 100: return ""
+        if nelems < table_lines: return ""
         html = "<table class='tablesorter'><tr><td>Page&nbsp;&nbsp;"
-        for i in range(min((nelems-100)/100,16)):
-            html += "<a href='"+url+"p"+str(i+1)+"'>"+str(i+1)+"</a>&nbsp;&nbsp;"
+        for i in range(min((nelems)/table_lines,16)):
+            html += "<a href='"+url+"p"+str(i)+"'>"+str(i)+"</a>&nbsp;&nbsp;"
         html += "</td></tr></table>"
         return html
         
@@ -238,7 +236,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<td>" + str(p.skill) + "</td>"
         html += "<td>" + str(p.mu)    + "</td>"
         html += "<td>" + str(p.sigma) + "</td>"
-        #~ html += "<td>" + str(len(p.games)) + "</td>"
         html += "<td>" + str(p.ngames) + "</td>"
         html += "<td>" + str(p.lastseen) + "</td>"
         html += "</tr>"
@@ -266,10 +263,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         ct={"survived":0,"eliminated":0,"timeout":0,"crashed 0":0}
         for ng,g in self.server.db.games.iteritems():
             for np,p in g.players.iteritems():
-                if i == 100:  break
+                if i == table_lines:  break
                 ct[ p[1] ] += 1
                 i += 1
-            if i == 100:  break
+            if i == table_lines:  break
         txt += " %d" % ct["survived"] 
         txt += " %d" % ct["eliminated"] 
         txt += " %d" % ct["timeout"] 
@@ -330,12 +327,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
     def serve_main(self, match):
-        html = self.header("latest games on " + str(self.server.opts['host']) )
+        html = self.header("%d games with %d players active on %s" % (len(book.games),len(book.players), self.server.opts['host']) )
         html += self.game_head()
         html += "<tbody>"
         offset=0
         if match and (len(match.group(0))>2):
-            offset=100 * int(match.group(0)[2:])
+            offset=table_lines * int(match.group(0)[2:])
             
         self.server.game_data_lock.acquire()
         i = 0
@@ -345,7 +342,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if i <= offset: continue
             html += self.game_line(g)            
             count += 1
-            if count> 100: break
+            if count> table_lines: break
         html += "</tbody></table>"
         html += self.page_counter("/", len(self.server.db.games) )
         html += self.footer()
@@ -371,7 +368,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if player in g.players:
                 html += self.game_line(g)                
                 count += 1
-                if count >= 100: break
+                if count >= table_lines: break
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
@@ -402,7 +399,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<tbody>"
         offset=0
         if match and (len(match.group(0))>8):
-            offset=100 * int(match.group(0)[8:])
+            offset=table_lines * int(match.group(0)[8:])
         
         self.server.game_data_lock.acquire()
         pz = self.server.db.players.items()
@@ -418,7 +415,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if i <= offset: continue
             html += self.rank_line( p )            
             count += 1
-            if count> 100: break
+            if count> table_lines: break
             
         html += "</tbody></table>"
         html += self.page_counter("/ranking/", len(self.server.db.players) )
@@ -522,11 +519,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 output = f.read()
                 f.close()
                 log.info("added static %s to cache." % fname)
-                ## don't cache replays, please !
+                ## don't cache replays.
                 if match.group(0).find("replay") < 0:
                     self.server.cache[fname] = output
-            except Exception, e:
-                #~ log.warning(str(e))
+            except:
                 self.send_error(404, 'File Not Found: %s' % self.path)
                 return
         else:
@@ -537,7 +533,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def do_GET(self):
-        #~ log.info(self.path)
 
         if self.path == '/':
             self.serve_main(None)
