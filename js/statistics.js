@@ -9,7 +9,7 @@ Smoothie.prototype.add = function( ts, col,lw )
 {
   var t = new TimeSeries();
   this.tl.push(t);
-  this.crt.addTimeSeries(t, { fps: 0.3, strokeStyle: 'rgba('+col+',1)', fillStyle: 'rgba('+col+',.22)', lineWidth: lw });
+  this.crt.addTimeSeries(t, { fps: 3, strokeStyle: 'rgba('+col+',1)', fillStyle: 'rgba('+col+',.22)', lineWidth: lw });
 };
 
 Smoothie.prototype.update = function( sarr )

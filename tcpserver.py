@@ -13,6 +13,7 @@ import trueskill
 import subprocess
 
 from time import time,asctime
+import datetime
 
 from ants import Ants
 from engine import run_game
@@ -217,7 +218,7 @@ class TcpGame(threading.Thread):
         g.id = self.id
         g.map = self.map_name
         g.turns = self.ants.turn
-        g.date = asctime()
+        g.date = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") #asctime()
         plr = {}
         for i,p in enumerate(self.players):
             if p in self.db.players:
@@ -377,8 +378,9 @@ class TCPGameServer(object):
                 return -1
         else:
             player = PlayerData()
-            player.password = password
             player.name = name
+            player.password = password
+            player.lastseen = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") 
             self.db.players[name] = player
             
         box = TcpBox(sock)

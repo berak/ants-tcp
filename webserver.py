@@ -135,11 +135,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 <script type="text/javascript" src="/js/jquery-1.2.6.min.js"></script> 
                 <script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
                 """
-        head += """</head><body> &nbsp;
+        head += """</head><body><b> &nbsp;&nbsp;&nbsp;
         <a href='/' name=top> Latest Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/settings'> Settings </a> &nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/tcpclient.py' title='get the python client'> Client.py </a>
-        <br><p>
+        <br><p></b>
         """
         return head
     
@@ -208,7 +210,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def game_line(self, g):
-        html = "<tr><td><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
+        html = "<tr><td width=10%><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
         for key, value in sorted(g.players.iteritems(), key=lambda (k,v): (v,k), reverse=True):
             html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"
         html += "</td><td>" + str(g.turns) + "</td>"
@@ -222,6 +224,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return """<table id='players' class='tablesorter' width='100%'>
             <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th><th>Last Seen</th></tr></thead>"""
         
+    def page_counter(self,url,nelems):
+        if nelems < 100: return ""
+        html = "<table class='tablesorter'><tr><td>Page&nbsp;&nbsp;"
+        for i in range(min((nelems-100)/100,16)):
+            html += "<a href='"+url+"p"+str(i+1)+"'>"+str(i+1)+"</a>&nbsp;&nbsp;"
+        html += "</td></tr></table>"
+        return html
         
     def rank_line( self, p ):
         html  = "<tr><td><a href='/player/" + str(p.name) + "'>"+str(p.name)+"</a></td>" 
@@ -285,6 +294,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_charts(self,match):
         html = self.header( "stats" )
         html += """
+            <div bgcolor='#aaa'>
             <br> &nbsp; &nbsp; &nbsp; 
             <font size=1 color='#0f0'>Games</font>
             <font size=1 color='#f00'>Players</font>
@@ -300,6 +310,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <script type="text/javascript" src="/js/smoothie.js"></script>
             <script type="text/javascript" src="/js/statistics.js"></script>
             <script> loadTabs(); </script>
+            </div>
             """
         html += self.footer()
         html += "</body></html>"
@@ -318,18 +329,29 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.serve_settings(match)
 
 
-    def serve_main(self):
+    def serve_main(self, match):
         html = self.header("latest games on " + str(self.server.opts['host']) )
         html += self.game_head()
         html += "<tbody>"
+        offset=0
+        if match and (len(match.group(0))>2):
+            offset=100 * int(match.group(0)[2:])
+            
         self.server.game_data_lock.acquire()
+        i = 0
+        count=0
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
-            html += self.game_line(g)
-        self.server.game_data_lock.release()
+            i += 1
+            if i <= offset: continue
+            html += self.game_line(g)            
+            count += 1
+            if count> 100: break
         html += "</tbody></table>"
+        html += self.page_counter("/", len(self.server.db.games) )
         html += self.footer()
         html += self.footer_sort('games')
         html += "</body></html>"
+        self.server.game_data_lock.release()
         self.wfile.write(html)
         
         
@@ -344,9 +366,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tbody></table>"
         html += self.game_head()
         html += "<tbody>"
+        count = 0
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
             if player in g.players:
-                html += self.game_line(g)
+                html += self.game_line(g)                
+                count += 1
+                if count >= 100: break
         self.server.game_data_lock.release()
         html += "</tbody></table>"
         html += self.footer()
@@ -375,6 +400,9 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header("Rankings")
         html += self.rank_head()
         html += "<tbody>"
+        offset=0
+        if match and (len(match.group(0))>8):
+            offset=100 * int(match.group(0)[8:])
         
         self.server.game_data_lock.acquire()
         pz = self.server.db.players.items()
@@ -383,10 +411,17 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
         pz.sort(by_skill)        
+        i = 0
+        count=0
         for n,p in pz:
-            html += self.rank_line( p )
+            i += 1
+            if i <= offset: continue
+            html += self.rank_line( p )            
+            count += 1
+            if count> 100: break
             
         html += "</tbody></table>"
+        html += self.page_counter("/ranking/", len(self.server.db.players) )
         html += self.footer()
         html += self.footer_sort('players')
         html += "</body></html>"
@@ -490,14 +525,14 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 ## don't cache replays, please !
                 if match.group(0).find("replay") < 0:
                     self.server.cache[fname] = output
-            except:
+            except Exception, e:
+                #~ log.warning(str(e))
                 self.send_error(404, 'File Not Found: %s' % self.path)
                 return
         else:
             output = self.server.cache[fname] 
-        self.send_response(200)
-        self.send_header('Content-type',mime_type)
-        self.end_headers()
+            
+        self.send_head(mime_type)
         self.wfile.write(output)
         
         
@@ -505,7 +540,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         #~ log.info(self.path)
 
         if self.path == '/':
-            self.serve_main()
+            self.serve_main(None)
             return
             
         for regex, func in (
@@ -515,10 +550,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 ('^\/stats', self.serve_stats),
                 ('^\/settings', self.serve_settings),
                 ('^\/ranking', self.serve_ranking),
+                ('^\/ranking/p([0-9]?)', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
                 ('^\/map/(.*)', self.serve_map),
                 ('^\/player\/(.*)', self.serve_player),
                 ('^\/replay\.([0-9]+)', self.serve_visualizer),
+                ('^\/p([0-9]?)', self.serve_main),
                 ('^\/?(.*)', self.serve_file),
                 ):
             match = re.search(regex, self.path)
