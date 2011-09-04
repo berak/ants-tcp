@@ -459,7 +459,7 @@ class TCPGameServer(object):
         #~ self.active_games[g.id] = g
         return g
                 
-    badwords=[]
+    badwords=["porn","pr0n","pron","dick","tits","hitler"]
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
@@ -482,7 +482,7 @@ class TCPGameServer(object):
                     name = data[1]
                     password = data[2]
                     
-                    if name in badwords:
+                    if name in self.badwords:
                         log.warning('we don\'t want user_names like %s here.' % (name))
                         try:                       
                             client.sendall("INFO: can you think of another name than '%s' please ?\nend\ngo\n" % name )
