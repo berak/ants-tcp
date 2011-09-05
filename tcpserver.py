@@ -242,7 +242,7 @@ class TcpGame(threading.Thread):
 
         # update trueskill
         if sum(ranks) >= len(ranks)-1:
-            if self.opts['skill'] == 'jskills':
+            if self.opts['trueskill'] == 'jskills':
                 self.calk_ranks_js( self.players, ranks )
             else : # default
                 self.calc_ranks_py( self.players, ranks )
@@ -482,7 +482,7 @@ class TCPGameServer(object):
                     name = data[1]
                     password = data[2]
                     name_ok = True
-                    for bw in ["porn","pr0n","pron","dick","tits","hitler","fuck","gay","cunt","asshole"]:
+                    for bw in ["shit","porn","pr0n","pron","dick","tits","hitler","fuck","gay","cunt","asshole"]:
                         if name.find(bw) > -1:
                             self.reject_client(client, "can you think of another name than '%s', please ?" % name )
                             name_ok = False

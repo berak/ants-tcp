@@ -94,7 +94,7 @@ def run_game(game, bots, options):
 
             # ensure it started
             if not bot.sock:
-                bot_status[-1] = 'crashed 0'
+                bot_status[-1] = 'crashed'
                 if verbose_log:
                     verbose_log.write('bot %s did not start\n' % b)
                 print('ERR : bot %s did not start\n' % b)

@@ -148,11 +148,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         if str(self.server.opts['sort'])=='True':
             return """
                 <script>
-                $(document).ready(function() 
-                    { 
-                        $("#%s").tablesorter(); 
-                    } 
-                ); 
+                $(document).ready(function() { $("#%s").tablesorter(); }); 
                 </script>
             """ % id
         return ""
@@ -225,7 +221,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def page_counter(self,url,nelems):
         if nelems < table_lines: return ""
         html = "<table class='tablesorter'><tr><td>Page&nbsp;&nbsp;"
-        for i in range(min((nelems)/table_lines,16)):
+        for i in range(min((nelems+table_lines)/table_lines,16)):
             html += "<a href='"+url+"p"+str(i)+"'>"+str(i)+"</a>&nbsp;&nbsp;"
         html += "</td></tr></table>"
         return html
@@ -260,7 +256,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_head("text/plain")
         i=0
         txt = "%d %d" % (len(book.players),len(book.games))
-        ct={"survived":0,"eliminated":0,"timeout":0,"crashed 0":0}
+        ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0}
         for ng,g in self.server.db.games.iteritems():
             for np,p in g.players.iteritems():
                 if i == 100:  break
@@ -270,7 +266,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         txt += " %d" % ct["survived"] 
         txt += " %d" % ct["eliminated"] 
         txt += " %d" % ct["timeout"] 
-        txt += " %d" % ct["crashed 0"] 
+        txt += " %d" % ct["crashed"] 
         #~ txt += " ".join([p for p in book.players])
         self.wfile.write(txt)
         
@@ -362,14 +358,25 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</tbody></table>"
         html += self.game_head()
         html += "<tbody>"
-        count = 0
+        i = 0
+        count=0
+        offset = 0
+        if match:
+            toks = match.group(0).split("/")
+            print toks
+            if len(toks)>3:
+                offset=table_lines * int(toks[3][1:])
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
             if player in g.players:
-                html += self.game_line(g)                
+                i += 1
+                if i <= offset: continue
                 count += 1
-                if count >= table_lines: break
+                if count > table_lines: continue
+                html += self.game_line(g)                
         self.server.game_data_lock.release()
         html += "</tbody></table>"
+        print "NGAMES: ", i
+        html += self.page_counter("/player/"+player+"/", i )
         html += self.footer()
         html += self.footer_sort('games')
         html += "</body></html>"
