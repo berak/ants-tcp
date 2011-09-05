@@ -84,7 +84,6 @@ class TcpBox(threading.Thread):
                     c = self.sock.recv(1)
                 except Exception, e:
                     self._close()
-                    #~ print e
                     break                
                 if ( not c ):
                     break
@@ -199,9 +198,10 @@ class TcpGame(threading.Thread):
             log.error("broken game %d: %s" % (self.id,game_result) )
             return
             
-        # save replay, add playernames to it
         scores = self.ants.get_scores()
         ranks = [sorted(scores, reverse=True).index(x) for x in scores]
+            
+        # save replay, add playernames to it
         game_result['playernames'] = []
         for i,p in enumerate(self.players):
             game_result['playernames'].append(p)
@@ -352,6 +352,8 @@ class TcpGame(threading.Thread):
             pdata.skill = pdata.mu - pdata.sigma * 3
         self.game_data_lock.release()
 
+
+
 class TCPGameServer(object):        
     def __init__(self, opts, game_db, port, game_data_lock, maps):
         self.opts = opts
@@ -389,20 +391,8 @@ class TCPGameServer(object):
         game.bots.append( box )
         game.players.append(name)
         book.players.add(name)
-        #~ self.active_players[name] = box
         return len(game.bots)
         
-    def release_player(self,player):
-        try:
-            print "bye", player
-            del( self.active_players[player.name] )
-        except:pass
-            
-    def release_game(self,game):
-        try:
-            print "bye", game
-            del( self.active_games[game.id] )
-        except:pass
                 
     def bind(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -456,10 +446,10 @@ class TCPGameServer(object):
         log.info( "game %d %s needs %d players" %(self.db.latest,map_name,nplayers) )
         g = TcpGame( self.db, opts, map_name, nplayers, self.game_data_lock)
         book.games.add(g.id)
-        #~ self.active_games[g.id] = g
         return g
 
-    def kill_client(self,client, message):
+
+    def reject_client(self,client, message):
         try:                       
             log.info(message)
             client.sendall("INFO: " + message + "\nend\ngo\n")
@@ -467,8 +457,9 @@ class TCPGameServer(object):
             client = None
         except:
             pass
-        
-    badwords=["porn","pr0n","pron","dick","tits","hitler","fuck"]
+            
+                
+    
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.next_game = self.create_game()
@@ -490,23 +481,27 @@ class TCPGameServer(object):
                     data = data.split(" ")
                     name = data[1]
                     password = data[2]
-                    
-                    if name in self.badwords:
-                        self.kill_client("%s is already running a game." % name )
+                    name_ok = True
+                    for bw in ["porn","pr0n","pron","dick","tits","hitler","fuck","gay","cunt","asshole"]:
+                        if name.find(bw) > -1:
+                            self.reject_client("can you think of another name than '%s', please ?" % name )
+                            name_ok = False
+                            break
+                    if not name_ok:
                         continue
                     # if in 'single game per player(name)' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
-                        self.kill_client("%s is already running a game.\nend\ngo\n" % name )
+                        self.reject_client("%s is already running a game." % name )
                         continue
                     # already in next_game ?
                     if name in self.next_game.players:                        
-                        self.kill_client('%s is already queued for game %d' % (name, self.next_game.id) )
+                        self.reject_client('%s is already queued for game %d' % (name, self.next_game.id) )
                         continue
                         
                     # start game if enough players joined
                     avail = self.addplayer( self.next_game, name, password, client )
                     if avail==-1:
-                        break
+                        continue
                     log.info('user %s connected to game %d (%d/%d)' % (name,self.next_game.id,avail,self.next_game.nplayers))
                     if avail == self.next_game.nplayers:
                         game = self.next_game

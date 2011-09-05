@@ -214,7 +214,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</td><td>" + str(g.turns) + "</td>"
         html += "</td><td>" + str(g.date) + "</td>"
         html += "<td><a href='/map/" + str(g.map) + "' title='View the map'>" + str(g.map) + "</a></td>"
-        html += "</tr>"
+        html += "</tr>\n"
         return html
         
         
@@ -238,7 +238,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "<td>" + str(p.sigma) + "</td>"
         html += "<td>" + str(p.ngames) + "</td>"
         html += "<td>" + str(p.lastseen) + "</td>"
-        html += "</tr>"
+        html += "</tr>\n"
         return html
         
     def serve_maps(self, match):
@@ -263,7 +263,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         ct={"survived":0,"eliminated":0,"timeout":0,"crashed 0":0}
         for ng,g in self.server.db.games.iteritems():
             for np,p in g.players.iteritems():
-                if i == table_lines:  break
+                if i == 100:  break
                 ct[ p[1] ] += 1
                 i += 1
             if i == table_lines:  break
@@ -327,7 +327,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
     def serve_main(self, match):
-        html = self.header("%d games with %d players active on %s" % (len(book.games),len(book.players), self.server.opts['host']) )
+        html = self.header("There are %d games and %d players active on %s" % (len(book.games),len(book.players), self.server.opts['host']) )
         html += self.game_head()
         html += "<tbody>"
         offset=0
@@ -354,7 +354,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def serve_player(self, match):
         player = match.group(0).split("/")[2]
-        #~ log.info( "PLAYER : " + match.group(0) )
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"

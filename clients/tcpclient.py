@@ -11,13 +11,13 @@ from socket import socket, AF_INET, SOCK_STREAM
 
 
 USAGE="""
+
     tcpclient.py   host_or_ip  port  botpath  player_nick  password  [num_rounds]
     
     if running on windows or if the botpath contains spaces,
-    you have to wrap the botpath with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
+    you have to wrap it with "", eg.: "java /x/y/MyBot", "e:\\ai\\bots\\mybot.exe"
     
     player_nick and password may only contain ascii_letters, '_', and numbers
-        http://xkcd.com/327/  (don't try, there's no sql in here.)
     
 """
 
@@ -145,10 +145,10 @@ def main():
         print USAGE
         return
         
-    host=sys.argv[1]
-    port=int(sys.argv[2])
-    botpath=sys.argv[3]
-    pname=sys.argv[4]    
+    host = sys.argv[1]
+    port = int(sys.argv[2])
+    botpath = sys.argv[3]
+    pname = sys.argv[4]    
     password = sys.argv[5]
     
     if not check_string(pname, "botname"):
