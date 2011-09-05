@@ -484,18 +484,18 @@ class TCPGameServer(object):
                     name_ok = True
                     for bw in ["porn","pr0n","pron","dick","tits","hitler","fuck","gay","cunt","asshole"]:
                         if name.find(bw) > -1:
-                            self.reject_client("can you think of another name than '%s', please ?" % name )
+                            self.reject_client(client, "can you think of another name than '%s', please ?" % name )
                             name_ok = False
                             break
                     if not name_ok:
                         continue
                     # if in 'single game per player(name)' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
-                        self.reject_client("%s is already running a game." % name )
+                        self.reject_client(client, "%s is already running a game." % name )
                         continue
                     # already in next_game ?
                     if name in self.next_game.players:                        
-                        self.reject_client('%s is already queued for game %d' % (name, self.next_game.id) )
+                        self.reject_client(client, '%s is already queued for game %d' % (name, self.next_game.id) )
                         continue
                         
                     # start game if enough players joined

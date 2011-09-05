@@ -19,6 +19,7 @@ lots of things will need further tweaking:
 	just blindly starting new games / threads without looking at system resources
 	1000 games take ~60 mb diskspace...
 	
-this would have never been possible without the original PW code:
+
+the original PW code:
 	https://github.com/McLeopold/TCPServer
 	http://www.benzedrine.cx/planetwars/server.tar.gz 

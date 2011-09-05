@@ -4,28 +4,30 @@ var net = require('net'),
     spawn = require('child_process').spawn,
     http = require("http");
     
-http.createServer(function(request, response) {
-    var ps = spawn('./mon.exe', ['System', 'Processes', 'System', 'Threads']);
-    ps.stdout.on('data', function (data) {
-        response.writeHead(200);
-        response.end( data );
+
+
+var botpath = "mybot.exe"
+var botname = "lala"
+var password = "letmein"
+var bot = null;
+
+var tcp = net.createConnection( 2081 );
+
+tcp.addListener('connect', function () {	
+	tcp.write('USER '+botname+' '+password+'\n'); 
+    bot = spawn(botpath);
+    bot.stdout.on('data', function (data) {
+        stream.write(data);
     });
-}).listen(8090);
-
-
-
-var id = 0;
-var stream = net.createConnection( 8124 );
-stream.addListener('connect', function () {	
-	stream.write('hello from cli\r\n'); 
 });
-
-stream.addListener('data', function (data) {
-	id ++;
-	stream.write('hello '+id+' from cli\r\n'); 
-	sys.puts( 'got ' + data + ' (' + id + '\r\n' );
+tcp.addListener('data', function (data) {
+	if ( data.startsWith("INFO:") ) {
+		sys.puts( data );
+	} else {
+		bot.stdin.write(data); 
+	}
 });
-stream.addListener('close', function () {
-	sys.puts('goodbye from cli\r\n');
-	stream.end();
+tcp.addListener('close', function () {
+	// kill the bot
+	tcp.end();
 });
