@@ -109,11 +109,14 @@ class AntsHttpServer(HTTPServer):
         self.maps = None
         self.cache = {}
         HTTPServer.__init__(self, *args)
-
+        
         
 class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def __init__(self, *args):
         SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, *args)
+        
+    def log_message(self,format,*args):
+        pass
     
                 
     def send_head(self, type='text/html'):
@@ -220,20 +223,20 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def page_counter(self,url,nelems):
         if nelems < table_lines: return ""
-        html = "<table class='tablesorter'><tr><td>Page&nbsp;&nbsp;"
+        html = "<table class='tablesorter'><tr><td>Page</td><td>&nbsp;&nbsp;"
         for i in range(min((nelems+table_lines)/table_lines,16)):
-            html += "<a href='"+url+"p"+str(i)+"'>"+str(i)+"</a>&nbsp;&nbsp;"
+            html += "<a href='"+url+"p"+str(i)+"'>"+str(i)+"</a>&nbsp;&nbsp;&nbsp;"
         html += "</td></tr></table>"
         return html
         
     def rank_line( self, p ):
         html  = "<tr><td><a href='/player/" + str(p.name) + "'>"+str(p.name)+"</a></td>" 
-        html += "<td>" + str(p.rank) + "</td>"
-        html += "<td>" + str(p.skill) + "</td>"
-        html += "<td>" + str(p.mu)    + "</td>"
-        html += "<td>" + str(p.sigma) + "</td>"
-        html += "<td>" + str(p.ngames) + "</td>"
-        html += "<td>" + str(p.lastseen) + "</td>"
+        html += "<td>%d</td>"    % p.rank
+        html += "<td>%2.4f</td>" % p.skill
+        html += "<td>%2.4f</td>" % p.mu
+        html += "<td>%2.4f</td>" % p.sigma
+        html += "<td>%d</td>"    % p.ngames
+        html += "<td>%s</td>"    % p.lastseen
         html += "</tr>\n"
         return html
         
@@ -257,7 +260,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         i=0
         txt = "%d %d" % (len(book.players),len(book.games))
         ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0}
-        for ng,g in self.server.db.games.iteritems():
+        for ng,g in sorted(self.server.db.games.iteritems(), reverse=True):
             for np,p in g.players.iteritems():
                 if i == 100:  break
                 ct[ p[1] ] += 1
@@ -363,7 +366,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         offset = 0
         if match:
             toks = match.group(0).split("/")
-            print toks
             if len(toks)>3:
                 offset=table_lines * int(toks[3][1:])
         for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
@@ -375,7 +377,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 html += self.game_line(g)                
         self.server.game_data_lock.release()
         html += "</tbody></table>"
-        print "NGAMES: ", i
         html += self.page_counter("/player/"+player+"/", i )
         html += self.footer()
         html += self.footer_sort('games')
@@ -404,9 +405,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.rank_head()
         html += "<tbody>"
         offset=0
-        if match and (len(match.group(0))>8):
-            offset=table_lines * int(match.group(0)[8:])
-        
+        if match:
+            toks = match.group(0).split("/")
+            if len(toks)>2:
+                offset=table_lines * int(toks[2][1:])
         self.server.game_data_lock.acquire()
         pz = self.server.db.players.items()
         self.server.game_data_lock.release()
@@ -550,8 +552,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 ('^\/charts', self.serve_charts),
                 ('^\/stats', self.serve_stats),
                 ('^\/settings', self.serve_settings),
-                ('^\/ranking', self.serve_ranking),
                 ('^\/ranking/p([0-9]?)', self.serve_ranking),
+                ('^\/ranking', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
                 ('^\/map/(.*)', self.serve_map),
                 ('^\/player\/(.*)', self.serve_player),

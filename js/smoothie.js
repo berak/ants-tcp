@@ -67,8 +67,8 @@ function SmoothieChart(options) {
   // Defaults
   options = options || {};
   options.grid = options.grid || { fillStyle:'#000000', strokeStyle: '#777777', lineWidth: 1, millisPerLine: 1000, verticalSections: 2 };
-  options.millisPerPixel = options.millisPerPixel || 20;
-  options.fps = options.fps || 20;
+  options.millisPerPixel = options.millisPerPixel || 200;
+  options.fps = options.fps //|| 1;
   options.maxValueScale = options.maxValueScale || 1;
   options.minValue = options.minValue || 0;
   options.labels = options.labels || { fillStyle:'#ffffff' }

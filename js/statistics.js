@@ -1,15 +1,15 @@
-function Smoothie( id, upd )
+function Smoothie( id, delay )
 {
   this.crt = new SmoothieChart();
   this.tl = [];        
-  this.crt.streamTo(document.getElementById(id), upd);
+  this.crt.streamTo(document.getElementById(id), delay);
 };
 
 Smoothie.prototype.add = function( ts, col,lw )
 {
   var t = new TimeSeries();
   this.tl.push(t);
-  this.crt.addTimeSeries(t, { fps: 3, strokeStyle: 'rgba('+col+',1)', fillStyle: 'rgba('+col+',.22)', lineWidth: lw });
+  this.crt.addTimeSeries(t, { fps: 0.03, strokeStyle: 'rgba('+col+',1)', fillStyle: 'rgba('+col+',.22)', lineWidth: lw });
 };
 
 Smoothie.prototype.update = function( sarr )
@@ -46,10 +46,10 @@ function updateTimeLine()
 
 function loadTabs()
 {
-  machine1 = new Smoothie("chart", 2500);
+  machine1 = new Smoothie("chart", 0);
   machine1.add( "Players", '255, 0, 0', 4 );
   machine1.add( "Games",   '0, 255, 0', 3 );
-  machine2 = new Smoothie("gstat", 2500);
+  machine2 = new Smoothie("gstat", 0);
   machine2.add( "Survived",   '0, 255, 0', 3 );
   machine2.add( "Eliminated", '255, 0, 0', 4 );
   machine2.add( "Timeout", '0, 0, 255', 4 );
