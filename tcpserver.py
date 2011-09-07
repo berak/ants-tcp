@@ -533,10 +533,6 @@ class TCPGameServer(object):
                     del( self.next_game.bots[i] )
                     del( self.next_game.players[i] )
                     
-            if t % 10000 == 1:
-                print "RESCAN MAP DIR"
-                self.maps = load_map_info()
-
             if t % 100 == 1:
                 log.info("%d games, %d players online." % (len(book.games),len(book.players)) )
             t += 1
