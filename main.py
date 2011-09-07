@@ -35,20 +35,6 @@ class WebThread(threading.Thread):
 
 
 
-def load_map_info():
-	maps={}
-	for root,dirs,filenames in os.walk("maps"):
-		for filename in filenames:
-			mf = open("maps/"+filename,"r")
-			for line in mf:
-				if line.startswith('players'):	p = int(line.split()[1])
-				if line.startswith('rows'):		r = int(line.split()[1])
-				if line.startswith('cols'):		c = int(line.split()[1])
-			mf.close()
-			maps[filename] = [p,r,c,0]
-	return maps
-
-
 def main():
 	
 	web_port = 2080
@@ -88,7 +74,7 @@ def main():
 	}
 
 	db  = game_db.load()
-	maps = load_map_info()
+	maps = tcpserver.load_map_info()
 	game_data_lock = threading.Lock()
 
 	tcp = TcpThread( opts, db, tcp_port, game_data_lock, maps )	

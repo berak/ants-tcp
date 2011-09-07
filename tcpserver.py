@@ -12,6 +12,10 @@ import threading
 import trueskill
 import subprocess
 
+from math import ceil, sqrt
+from time import time,sleep
+import json
+
 from time import time,asctime
 import datetime
 
@@ -39,9 +43,6 @@ log.addHandler(ch)
 
 BUFSIZ = 4096
 
-from math import ceil, sqrt
-from time import time,sleep
-import json
 
 
 ## ugly global, but the last thing you'll want here are circular refs! 
@@ -50,6 +51,21 @@ class Bookkeeper:
     games=set()
 
 book = Bookkeeper()
+
+
+def load_map_info():
+	maps={}
+	for root,dirs,filenames in os.walk("maps"):
+		for filename in filenames:
+			mf = open("maps/"+filename,"r")
+			for line in mf:
+				if line.startswith('players'):	p = int(line.split()[1])
+				if line.startswith('rows'):		r = int(line.split()[1])
+				if line.startswith('cols'):		c = int(line.split()[1])
+			mf.close()
+			maps[filename] = [p,r,c,0]
+	return maps
+
 
 
 
@@ -517,6 +533,10 @@ class TCPGameServer(object):
                     del( self.next_game.bots[i] )
                     del( self.next_game.players[i] )
                     
+            if t % 10000 == 1:
+                print "RESCAN MAP DIR"
+                self.maps = load_map_info()
+
             if t % 100 == 1:
                 log.info("%d games, %d players online." % (len(book.games),len(book.players)) )
             t += 1

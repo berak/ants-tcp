@@ -434,79 +434,51 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     
     
     def serve_map( self, match ):      
-        ####  AH;SHUCKS, i'm too lazy to parse the map from js...
-        #~ square = 5
-        #~ html = """
-        #~ <canvas width=""" +str(w)+ " height=" +str(h+20)+ """ id='C'>
-        #~ <p>
-        #~ <script>
-            #~ mapdata = """ + mapdata + """;
-            #~ colors = {
-                #~ '%':'#0f5bb7',
-                #~ '.':'#049227',
-                #~ '*':'#1aba87',
-                #~ 'a':'#4ca9c8',
-                #~ 'b':'#6a9a2a',
-                #~ 'c':'#8a2b44',
-                #~ 'd':'#ff5d00'
-                #~ 'e':'#4ca9c8',
-                #~ 'f':'#6a9a2a',
-                #~ 'g':'#8a2b44',
-                #~ 'h':'#ff5d00'
-                #~ }
-            
-            #~ C = document.getElementById('C')
-            #~ V = C.getContext('2d');
-            #~ function drawboard(turn) {
-                #~ V.clearRect(0,0,500,500)
-                #~ V.fillStyle = 'white'            
-                #~ // draw base board 
-                #~ for (r=0; r<h; r++) {
-                    #~ for (c=0; c<w; c++) {
-                        #~ elm = replay['board'][r][c]
-                        #~ V.fillStyle = '#606060'
-                        #~ V.fillRect(c*square,r*square,square,square);
-                    #~ }
-                #~ }
-        #~ </script>"""
-            
-        style = """
-            <style>
-                .A { border:0; background-color:#f0f; width:5; height:5; }
-                .B { border:0; background-color:#f00; width:5; height:5; }
-                .C { border:0; background-color:#0f0; width:5; height:5; }
-                .D { border:0; background-color:#0ff; width:5; height:5; }
-                .E { border:0; background-color:#ccc; width:5; height:5; }
-                .F { border:0; background-color:#ff0; width:5; height:5; }
-                .G { border:0; background-color:#22a; width:5; height:5; }
-            </style>
-            """
-        mapname = match.group(0).split('/')[2]
-        fname = os.getcwd() + "/maps/" + mapname 
-        f = open(fname,"rb")
-        m = f.read()
-        f.close()
-        result = self.header(mapname) + style + "<table border=0>\r\n"
+        try:
+            mapname = match.group(0).split('/')[2]
+            fname = os.getcwd() + "/maps/" + mapname 
+            f = open(fname,"rb")
+            m = f.read()
+            f.close()
+        except:
+            self.send_error(404, 'File Not Found: %s' % self.path)
+            return
+        w=0
+        h=0
+        s=5
+        jsmap = "var jsmap=[\n"
         for line in m.split('\n'):
             line = line.strip().lower()
             if not line or line[0] == '#':
                 continue
             key, value = line.split(' ')
             if key == 'm':
-                result +="<tr>"
-                for pix in value:
-                    if pix=='a': c='A'
-                    if pix=='b': c='B'
-                    if pix=='c': c='C'
-                    if pix=='d': c='D'
-                    if pix=='.': c='E'
-                    if pix=='*': c='F'
-                    if pix=='%': c='G'
-                    result +="<td class='"+c+"'/>"
-                result +="<tr>"
-        result += "</table>" + self.footer()
-            
-        self.wfile.write(result)
+                jsmap += '\"' + value + "\",\n"
+            if key == 'rows':
+                h = int(value)
+            if key == 'cols':
+                w = int(value)
+        jsmap += "]\n"
+        
+        html = self.header(mapname)
+        html += "&nbsp;&nbsp;&nbsp;<canvas width="+str(s*w)+" height="+str(s*h)+" id='C'><p>\n<script>\n"+jsmap+"var square = " + str(s) + "\n"
+        html +=""" 
+            var colors = { '%':'#1e3f5d', '.':'#553322', 'a':'#4ca9c8', 'b':'#6a9a2a', 'c':'#8a2b44', 'd':'#ff5d00', 'e':'#4ca9c8', 'f':'#6a9a2a', 'g':'#8a2b44', 'h':'#ff5d00' }            
+            var C = document.getElementById('C')
+            var V = C.getContext('2d');
+            for (var r=0; r<jsmap.length; r++) {
+                var line = jsmap[r]
+                for (var c=0; c<line.length; c++) {
+                    V.fillStyle = colors[line[c]]
+                    V.fillRect(c*square,r*square,square,square);
+                }
+            }
+            </script>
+            </canvas>
+            """
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
             
             
     #
