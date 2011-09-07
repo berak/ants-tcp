@@ -65,7 +65,7 @@ def main():
 								# if set to False, players will have to wait until their latest game ended
 		## web opts:
 		'style': 'light',		# or 'dark'
-		'sort': 'True',		# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
+		'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
 		
 		## read only info
 		'host': socket.gethostname(),
