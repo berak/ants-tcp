@@ -434,13 +434,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     
     
     def serve_map( self, match ):      
+        ####  AH;SHUCKS, i'm too lazy to parse the map from js...
         #~ square = 5
         #~ html = """
-        #~ <!--[if IE]><script src="res/excanvas.compiled.js"></script><![endif]-->    
         #~ <canvas width=""" +str(w)+ " height=" +str(h+20)+ """ id='C'>
         #~ <p>
         #~ <script>
-            #~ replay = """ + simplejson.dumps(rep) + """;
+            #~ mapdata = """ + mapdata + """;
             #~ colors = {
                 #~ '%':'#0f5bb7',
                 #~ '.':'#049227',

@@ -41,40 +41,6 @@ LoadingState = {
 };
 
 /**
- * @class A simple location class that stores information about a rectangle.
- * @constructor
- * @param {Number}
- *        x left coordinate
- * @param {Number}
- *        y top coordinate
- * @param {Number}
- *        w width
- * @param {Number}
- *        h height
- */
-function Location(x, y, w, h) {
-	this.x = x;
-	this.y = y;
-	this.w = w;
-	this.h = h;
-}
-
-/**
- * Checks if a given coordinate pair is within the area described by this
- * object.
- * 
- * @param {Number}
- *        x left coordinate
- * @param {Number}
- *        y top coordinate
- * @returns {Boolean} true, if the point is inside the rectangle
- */
-Location.prototype.contains = function(x, y) {
-	return (x >= this.x && x < this.x + this.w && y >= this.y && y < this.y
-			+ this.h);
-};
-
-/**
  * @class The main 'application' object that provides all necessary methods for
  *        the use in a web page. Usually you just construct an instance and then
  *        call {@link Visualizer#loadReplayData} or
@@ -221,6 +187,8 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 		this.mapCenterX = 0;
 		/** @private */
 		this.mapCenterY = 0;
+		/** @private */
+		this.progressList = [];
 
 		// print out the configuration
 		text = 'Loading visualizer...';
@@ -280,14 +248,29 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
  *        log a message to be logged before executing the function
  * @param {Function}
  *        func a function to be called after displaying the message
+ * @param {String}
+ *        id An identification of the progress that will be used to filter
+ *        duplicates in the queue.
  */
-Visualizer.prototype.progress = function(log, func) {
+Visualizer.prototype.progress = function(log, func, id) {
+	var i;
 	if (this.loading !== LoadingState.LOADING) return;
+	for (i = 0; i < this.progressList.length; i++) {
+		if (id === this.progressList[i]) return;
+	}
+	this.progressList.push(id);
 	var vis = this;
 	if (log) this.logOut(log);
 	window.setTimeout(function() {
+		var k;
 		try {
 			func();
+			for (k = 0; k < vis.progressList.length; k++) {
+				if (id === vis.progressList[k]) {
+					vis.progressList.splice(k, 1);
+					break;
+				}
+			}
 		} catch (error) {
 			vis.exceptionOut(error, true);
 			var selectedPosX = 0;
@@ -448,8 +431,8 @@ Visualizer.prototype.loadReplayDataFromURI = function(file) {
 					request.setRequestHeader('Cache-Control', 'no-cache');
 				}
 				request.send();
-				vis.loadCanvas(true);
-			});
+				vis.loadCanvas();
+			}, "FETCH");
 };
 
 /**
@@ -461,23 +444,45 @@ Visualizer.prototype.loadReplayDataFromURI = function(file) {
 Visualizer.prototype.loadReplayData = function(data) {
 	if (this.preload()) return;
 	this.replayStr = data;
-	this.loadCanvas(true);
+	this.loadCanvas();
 };
+
+/**
+ * This initializes the visualizer to accept data pushed to it from the Java
+ * wrapper. For performance reasons native Java code in Stream.java will
+ * incrementally fill up the replay. Since visualizer is really slow in some
+ * situations, it used to be unresponsive when streaming at a high rate. To
+ * avoid that it now requests a single new turn from the wrapper for every
+ * rendered frame.
+ * 
+ * @returns {Replay} the replay object is exposed to the Java wrapper
+ */
 Visualizer.prototype.streamingInit = function() {
 	this.preload();
 	this.state.isStreaming = true;
 	return this.state.replay = new Replay();
 };
+
+/**
+ * This is called internally by {@link Visualizer#draw} to request the next turn
+ * after a rendered frame (throttling the data stream) and as a one-time,
+ * asynchronous call from Stream.java, where it is issued after the Java wrapper
+ * has set up a global 'stream' variable in the JavaScript context that refers
+ * to the Java Stream instance. First the visualizer will request new data from
+ * the wrapper and set state.isStreaming to false if the game ended. Then, if
+ * the visualizer has not finished loading yet, it will fully initialize itself
+ * based on the replay data or start/resume playback.
+ */
 Visualizer.prototype.streamingStart = function() {
 	this.state.isStreaming = stream.visualizerReady();
 	if (this.loading === LoadingState.LOADING) {
 		if (this.state.replay.duration > 0) {
-			// set cpu to 100%, we need it
+			// set CPU to 100%, we need it
 			this.director.cpu = 1;
-			this.loadCanvas(true);
+			this.loadCanvas();
 		}
 	} else {
-		// call resize to update the gui
+		// call resize() in forced mode to update the GUI (graphs)
 		this.resize(true);
 		// resume playback if we are at the end
 		resume = !this.director.playing()
@@ -491,36 +496,38 @@ Visualizer.prototype.streamingStart = function() {
 		}
 	}
 };
+
 /**
+ * In this method the replay string that has been passed directly or downloaded
+ * is parsed into a {@link Replay}. Afterwards an attempt is made to start the
+ * visualization ({@link Visualizer#tryStart}).
+ * 
  * @private
  */
 Visualizer.prototype.loadParseReplay = function() {
 	var vis = this;
 	this.progress('Parsing the replay...', function() {
-		if (!(vis.state.replay || vis.replayReq || vis.replayStr)) {
-			if (vis.loading !== LoadingState.CLEANUP) {
-				throw new Error('Replay is undefined.');
-			}
-		} else if (vis.state.replay) { // has just been parsed
-			return;
-		} else if (vis.replayStr) { // string only
-			vis.state.replay = new Replay(vis.replayStr,
-					vis.state.options.debug, vis.state.options.user);
+		var debug = vis.state.options.debug;
+		var user = vis.state.options.user;
+		if (vis.replayStr) {
+			vis.state.replay = new Replay(vis.replayStr, debug, user);
 			vis.replayStr = undefined;
-		} else if (vis.replayReq) { // wait for the reply
-			return;
+		} else if (vis.loading !== LoadingState.CLEANUP) {
+			throw new Error('Replay is undefined.');
 		}
 		vis.tryStart();
-	});
+	}, "PARSE");
 };
+
 /**
- * Creates a canvas element
+ * Creates the main canvas element and insert it into the web page. An attempt
+ * is made to start the visualization ({@link Visualizer#tryStart}).
  * 
  * @private
  */
-Visualizer.prototype.loadCanvas = function(prompt) {
+Visualizer.prototype.loadCanvas = function() {
 	var vis = this;
-	this.progress(prompt ? 'Creating canvas...' : undefined, function() {
+	this.progress('Creating canvas...', function() {
 		if (!vis.main.canvas) {
 			vis.main.canvas = document.createElement('canvas');
 			vis.main.canvas.style.display = 'none';
@@ -531,10 +538,18 @@ Visualizer.prototype.loadCanvas = function(prompt) {
 			vis.container.insertBefore(c, vis.log);
 		}
 		vis.tryStart();
-	});
+	}, "CANVAS");
 };
+
 /**
- * Called by the ImageManager when no more images are loading
+ * Called by the ImageManager when no more images are loading. Since image
+ * loading is a background operation, an attempt is made to start the
+ * visualization ({@link Visualizer#tryStart}). If some images didn't load,
+ * the visualizer is stopped with an error message.
+ * 
+ * @param error
+ *        {String} Contains the error message for images that didn't load or is
+ *        empty.
  */
 Visualizer.prototype.completedImages = function(error) {
 	if (error) {
@@ -545,113 +560,137 @@ Visualizer.prototype.completedImages = function(error) {
 		this.tryStart();
 	}
 };
+
 /**
  * Checks if we have a drawing context (canvas/applet), the images and the
- * replay. If all components are loaded it starts playback.
+ * replay. If all components are loaded, some remaining items that depend on
+ * them are created and playback is started. tryStart() is called after any long
+ * during action that runs in the background, like downloading images and the
+ * replay to check if that was the last missing component.
+ * 
+ * @private
  */
 Visualizer.prototype.tryStart = function() {
-	var bg, stop, i;
+	var bg, i, dlg;
 	var vis = this;
 	// we need to parse the replay, unless it has been parsed by the
 	// XmlHttpRequest callback
 	if (this.state.replay) {
 		if (this.main.ctx && !this.imgMgr.error && !this.imgMgr.pending) {
-			vis = this;
 			this.btnMgr.ctx = this.main.ctx;
 			if (this.state.options.interactive) {
 				// add static buttons
-				if (!vis.btnMgr.groups['playback']) {
+				if (!this.btnMgr.groups['playback']) {
 					if (this.state.replay.hasDuration) {
-						bg = vis.btnMgr.addImageGroup('playback',
-								vis.imgMgr.images[1],
+						bg = this.btnMgr.addImageGroup('playback',
+								this.imgMgr.images[1],
 								ImageButtonGroup.HORIZONTAL,
 								ButtonGroup.MODE_NORMAL, 2, 0);
-						bg.addButton(3, function() {
-							vis.director.gotoTick(0);
-						}, 'jump to start of first turn');
+
+						dlg = new Delegate(this, function() {
+							this.director.gotoTick(0);
+						});
+						bg.addButton(3, dlg, 'jump to start of first turn');
 						bg.addSpace(32);
-						bg.addButton(5, function() {
-							stop = (Math.ceil(vis.state.time * 2) - 1) / 2;
-							vis.director.slowmoTo(stop);
-						}, 'play one move/attack phase backwards');
-						// bg.addButton(0, function()
-						// {vis.director.playStop()});
+
+						dlg = new Delegate(this, function() {
+							var stop = Math.ceil(this.state.time * 2) - 1;
+							this.director.slowmoTo(stop / 2);
+						});
+						bg.addButton(5, dlg,
+								'play one move/attack phase backwards');
 						bg.addSpace(64);
-						bg.addButton(4, function() {
-							vis.director.playStop();
-						}, 'play/stop the game');
-						// drawImage(this.imgMgr.images[1], 1 * 64, 0, 64, 64, x
-						// + 4.5 * 64, y, 64, 64);
+
+						dlg = new Delegate(this.director,
+								this.director.playStop);
+						bg.addButton(4, dlg, 'play/stop the game');
 						bg.addSpace(64);
-						bg
-								.addButton(
-										6,
-										function() {
-											var stop = (Math
-													.floor(vis.state.time * 2) + 1) / 2;
-											vis.director.slowmoTo(stop);
-										}, 'play one move/attack phase');
+
+						dlg = new Delegate(this, function() {
+							var stop = Math.floor(this.state.time * 2) + 1;
+							this.director.slowmoTo(stop / 2);
+						});
+						bg.addButton(6, dlg, 'play one move/attack phase');
 						bg.addSpace(32);
-						bg.addButton(2, function() {
-							vis.director.gotoTick(vis.director.duration);
-						}, 'jump to end of the last turn');
+
+						dlg = new Delegate(this, function() {
+							this.director.gotoTick(this.director.duration);
+						});
+						bg.addButton(2, dlg, 'jump to end of the last turn');
 					}
-					bg = vis.btnMgr.addImageGroup('toolbar',
-							vis.imgMgr.images[3], ImageButtonGroup.VERTICAL,
+
+					bg = this.btnMgr.addImageGroup('toolbar',
+							this.imgMgr.images[3], ImageButtonGroup.VERTICAL,
 							ButtonGroup.MODE_NORMAL, 2, 0);
+
 					if (this.state.config.hasLocalStorage()) {
-						bg.addButton(0, function() {
-							vis.state.config.save();
-						}, 'save and reuse the current settings');
+						dlg = new Delegate(this, function() {
+							this.state.config.save();
+						});
+						bg.addButton(0, dlg,
+								'save and reuse the current settings');
 					}
+
 					if (!window.isFullscreenSupported
 							|| window.isFullscreenSupported()) {
-						bg.addButton(1, function() {
-							vis.setFullscreen(!vis.state.config['fullscreen']);
-						}, 'toggle fullscreen mode');
+						dlg = new Delegate(this, function() {
+							var fs = this.state.config['fullscreen'];
+							this.setFullscreen(!fs);
+						});
+						bg.addButton(1, dlg, 'toggle fullscreen mode');
 					}
-					bg.addButton(2, function() {
-						vis.setZoom(2 * vis.state.config['zoom']);
-						vis.director.draw();
-					}, 'zoom in');
-					bg.addButton(3, function() {
-						var oldScale = vis.state.scale;
+
+					dlg = new Delegate(this, function() {
+						this.setZoom(2 * this.state.config['zoom']);
+						this.director.draw();
+					});
+					bg.addButton(2, dlg, 'zoom in');
+
+					dlg = new Delegate(this, function() {
+						var oldScale = this.state.scale;
 						do {
-							vis.setZoom(0.5 * vis.state.config['zoom']);
-						} while (vis.state.scale == oldScale
-								&& vis.state.config['zoom'] > 1);
-						vis.director.draw();
-					}, 'zoom out');
-					bg.addButton(4, function() {
-						vis.state.shiftX = vis.mapCenterX;
-						vis.state.shiftY = vis.mapCenterY;
-						var btn = vis.btnMgr.groups['toolbar'].getButton(4);
+							this.setZoom(0.5 * this.state.config['zoom']);
+						} while (this.state.scale === oldScale
+								&& this.state.config['zoom'] > 1);
+						this.director.draw();
+					});
+					bg.addButton(3, dlg, 'zoom out');
+
+					dlg = new Delegate(this, function() {
+						this.state.shiftX = this.mapCenterX;
+						this.state.shiftY = this.mapCenterY;
+						var btn = this.btnMgr.groups['toolbar'].getButton(4);
 						btn.enabled = false;
 						btn.draw();
-						vis.director.draw();
-					}, 'center the map').enabled = false;
+						this.director.draw();
+					});
+					bg.addButton(4, dlg, 'center the map').enabled = false;
+
+					dlg = new Delegate(this, function() {
+						var lbl = this.state.config['label'];
+						this.setAntLabels((lbl + 1) % 3);
+						this.director.draw();
+					});
 					bg
-							.addButton(
-									5,
-									function() {
-										vis
-												.setAntLabels((vis.state.config['label'] + 1) % 3);
-										vis.director.draw();
-									},
+							.addButton(5, dlg,
 									'toggles: 1. player letters on ants, 2. global ids on ants');
+
 					if (this.state.replay.hasDuration) {
-						bg.addButton(6, function() {
-							vis.state.config['speedFactor'] += 1;
-							vis.setReplaySpeed();
+						dlg = new Delegate(this, function() {
+							this.state.config['speedFactor'] += 1;
+							this.calculateReplaySpeed();
 						});
-						bg.addButton(7, function() {
-							vis.state.config['speedFactor'] -= 1;
-							vis.setReplaySpeed();
+						bg.addButton(6, dlg);
+
+						dlg = new Delegate(this, function() {
+							this.state.config['speedFactor'] -= 1;
+							this.calculateReplaySpeed();
 						});
+						bg.addButton(7, dlg);
 					}
 				}
 				// generate fog images
-				var colors = [ SAND_COLOR ];
+				colors = [];
 				for (i = 0; i < this.state.replay.players; i++) {
 					colors.push(this.state.replay.meta['playercolors'][i]);
 				}
@@ -662,23 +701,13 @@ Visualizer.prototype.tryStart = function() {
 							this.imgMgr.patterns[2], ImageButtonGroup.VERTICAL,
 							ButtonGroup.MODE_RADIO, 2);
 					var buttonAdder = function(fog) {
-						return bg
-								.addButton(
-										i,
-										function() {
-											vis.showFog(fog);
-										},
-										(i == 0)
-												? 'clear fog of war'
-												: 'show fog of war for '
-														+ vis.state.replay.meta['playernames'][i - 1]);
+						var dlg = new Delegate(vis, vis.showFog);
+						var hint = 'show/clear fog of war for ';
+						hint += vis.state.replay.meta['playernames'][i];
+						return bg.addButton(i, dlg, hint);
 					};
 					for ( var i = 0; i < colors.length; i++) {
-						if (i == 0) {
-							buttonAdder(undefined).down = true;
-						} else {
-							buttonAdder(i - 1);
-						}
+						buttonAdder(i);
 					}
 				}
 			}
@@ -688,7 +717,7 @@ Visualizer.prototype.tryStart = function() {
 			}
 			// calculate speed from duration and config settings
 			this.director.duration = this.state.replay.duration;
-			this.setReplaySpeed();
+			this.calculateReplaySpeed();
 			if (this.state.options.interactive) {
 				this.director.onstate = function() {
 					var btn = vis.btnMgr.groups['playback'].buttons[4];
@@ -697,7 +726,8 @@ Visualizer.prototype.tryStart = function() {
 					if (btn === vis.btnMgr.pinned) {
 						vis.btnMgr.pinned = null;
 					}
-					btn.mouseUp();
+					btn.down = 0;
+					btn.draw();
 				};
 				// this will fire once in FireFox when a key is held down
 				document.onkeydown = function(event) {
@@ -772,11 +802,21 @@ Visualizer.prototype.tryStart = function() {
 				}
 			}
 		}
-	} else if (!this.replayReq) {
+	} else if (this.replayStr) {
 		this.loadParseReplay();
 	}
 };
 
+/**
+ * Calculates the position that the map should be moved to if it is centered.
+ * The map is centered once at the start and on a click of the center button.
+ * The center is usually (0;0), unless {@link Options#row} and
+ * {@link Options#col} are set.
+ * 
+ * @private
+ * @param scale
+ *        {Number} Since the position is in pixels, it depends on the map scale.
+ */
 Visualizer.prototype.calculateMapCenter = function(scale) {
 	var options = this.state.options;
 	var cols = this.state.replay.cols;
@@ -790,20 +830,25 @@ Visualizer.prototype.calculateMapCenter = function(scale) {
 	}
 };
 
+/**
+ * Adds the game and player link buttons at the top of the display.
+ * 
+ * @private
+ */
 Visualizer.prototype.addPlayerButtons = function() {
 	var scores, i;
 	var bg = this.btnMgr.addTextGroup('players', ButtonGroup.MODE_NORMAL, 2);
 	var vis = this;
-	var func = undefined;
+	var dlg = undefined;
 	var gameId = this.state.replay.meta['game_id'] || this.state.options.game;
 	if (gameId !== undefined) {
 		if (this.state.replay.meta['game_url']) {
-			func = function() {
-				window.location.href = vis.state.replay.meta['game_url']
+			dlg = new Delegate(this, function() {
+				window.location.href = this.state.replay.meta['game_url']
 						.replace('~', gameId);
-			};
+			});
 		}
-		bg.addButton('Game #' + gameId + ':', '#000', func);
+		bg.addButton('Game #' + gameId + ':', '#000', dlg);
 	} else {
 		bg.addButton('Players:', '#000', undefined);
 	}
@@ -832,24 +877,33 @@ Visualizer.prototype.addPlayerButtons = function() {
 	}
 	var buttonAdder = function(idx) {
 		var color = vis.state.replay.htmlPlayerColors[idx];
-		var func = null;
+		var dlg = undefined;
 		if (vis.state.replay.meta['user_url']
 				&& vis.state.replay.meta['user_ids']
 				&& vis.state.replay.meta['user_ids'][idx] !== undefined) {
-			func = function() {
-				window.location.href = vis.state.replay.meta['user_url']
-						.replace('~', vis.state.replay.meta['user_ids'][idx]);
-			};
+			dlg = new Delegate(vis, function() {
+				window.location.href = this.state.replay.meta['user_url']
+						.replace('~', this.state.replay.meta['user_ids'][idx]);
+			});
 		}
 		var caption = vis.state.replay.meta['playernames'][idx];
 		caption = ranks[idx] + '. ' + caption;
-		bg.addButton(caption, color, func);
+		bg.addButton(caption, color, dlg);
 	};
 	for (i = 0; i < this.state.replay.players; i++) {
 		buttonAdder(order[i]);
 	}
 };
-Visualizer.prototype.setReplaySpeed = function() {
+
+/**
+ * This calculates the playback speed from the configuration values
+ * {@link Config#duration}, {@link Config#speedSlowest},
+ * {@link Config#speedFastest} and {@link Config#speedFactor}. The latter can
+ * be controlled by the speed buttons.
+ * 
+ * @private
+ */
+Visualizer.prototype.calculateReplaySpeed = function() {
 	var speed = this.director.duration / this.state.config['duration'];
 	speed = Math.max(speed, this.state.config['speedSlowest']);
 	speed = Math.min(speed, this.state.config['speedFastest']);
@@ -868,20 +922,32 @@ Visualizer.prototype.setReplaySpeed = function() {
 		slowDownBtn.hint = hintText(this.state.config['speedFactor'] - 1);
 	}
 };
+
+/**
+ * Calculates the visualizer display size depending on the constructor arguments
+ * and whether fullscreen mode is supported and enabled.
+ * 
+ * @private
+ * @returns {Size} the size the visualizer should have
+ */
 Visualizer.prototype.calculateCanvasSize = function() {
-	var result = {};
-	if (typeof (window.innerWidth) == 'number') {
-		// Non-IE
-		result.width = window.innerWidth;
-		result.height = window.innerHeight;
-	}
-	var embed = (window.isFullscreenSupported && !window
-			.isFullscreenSupported())
-			|| !this.state.config['fullscreen'];
-	result.width = (this.w && embed) ? this.w : result.width;
-	result.height = (this.h && embed) ? this.h : result.height;
-	return result;
+	var width, height;
+	var embed = window.isFullscreenSupported && !window.isFullscreenSupported();
+	embed = embed || !this.state.config['fullscreen'];
+	width = (this.w && embed) ? this.w : window.innerWidth;
+	height = (this.h && embed) ? this.h : window.innerHeight;
+	return new Size(width, height);
 };
+
+/**
+ * Enables or disables fullscreen mode. In fullscreen mode the &lt;body&gt;
+ * element is replaced with a new one that contains only the visualizer.
+ * 
+ * @private
+ * @param enable
+ *        {Boolean} If true, the visualizer will switch to fullscreen mode if
+ *        supported.
+ */
 Visualizer.prototype.setFullscreen = function(enable) {
 	if (!window.isFullscreenSupported || window.isFullscreenSupported()) {
 		if (window.setFullscreen) {
@@ -909,6 +975,22 @@ Visualizer.prototype.setFullscreen = function(enable) {
 	}
 	this.resize(true);
 };
+
+/**
+ * Sets a new map zoom. At zoom level 1, the map is displayed such that
+ * <ul>
+ * <li>it has at least a border of 10 pixels on each side</li>
+ * <li>map squares are displayed at an integer size</li>
+ * <li>map squares are at least 1 pixel in size</li>
+ * </ul>
+ * This value is then multiplied by the zoom given to this function and
+ * ultimately clamped to a range of [1..20].
+ * 
+ * @private
+ * @param zoom
+ *        {Number} The new zoom level in pixels. Map squares will be scaled to
+ *        this value. It will be clamped to the range [1..20].
+ */
 Visualizer.prototype.setZoom = function(zoom) {
 	var oldScale = this.state.scale;
 	var effectiveZoom = Math.max(1, zoom);
@@ -938,37 +1020,52 @@ Visualizer.prototype.setZoom = function(zoom) {
 		zoomOutBtn.draw();
 	}
 };
+
+/**
+ * Sets the ant label display mode to a new value.
+ * 
+ * @private
+ * @param mode
+ *        {Number} 0 = no display, 1 = letters, 2 = global ant ids
+ */
 Visualizer.prototype.setAntLabels = function(mode) {
 	this.state.config['label'] = mode;
 };
+
+/**
+ * Called upon window size changes to layout the visualizer elements.
+ * 
+ * @private
+ * @param forced
+ *        {Boolean} If true, the layouting and redrawing is performed even if no
+ *        size change can be detected. This is useful on startup or if the
+ *        canvas content has been invalidated.
+ */
 Visualizer.prototype.resize = function(forced) {
 	var y, w;
-	var olds = {
-		width : this.main.canvas.width,
-		height : this.main.canvas.height
-	};
+	var olds = new Size(this.main.canvas.width, this.main.canvas.height);
 	var newSize = this.calculateCanvasSize();
-	var resizing = newSize.width != olds.width || newSize.height != olds.height;
+	var resizing = newSize.w != olds.w || newSize.h != olds.h;
 	if (resizing || forced) {
 		var canvas = this.main.canvas;
 		var ctx = this.main.ctx;
 		if (resizing) {
-			canvas.width = newSize.width;
-			canvas.height = newSize.height;
+			canvas.width = newSize.w;
+			canvas.height = newSize.h;
 			ctx.fillStyle = '#fff';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 		}
 		this.resizing = true;
 		if (this.state.replay.hasDuration) {
 			// 1. player buttons
-			y = this.btnMgr.groups['players'].cascade(newSize.width) + 4;
+			y = this.btnMgr.groups['players'].cascade(newSize.w) + 4;
 			// 2. scores bar & time line
 			this.scores.x = 0;
 			this.scores.y = y;
-			this.scores.setSize(newSize.width, CanvasElementStats.MIN_HEIGHT);
+			this.scores.setSize(newSize.w, CanvasElementStats.MIN_HEIGHT);
 			this.counts.x = 0;
 			this.counts.y = this.scores.y + this.scores.h + 4;
-			this.counts.setSize(newSize.width, CanvasElementStats.MAX_HEIGHT);
+			this.counts.setSize(newSize.w, CanvasElementStats.MAX_HEIGHT);
 			y = this.counts.y + this.counts.h;
 		} else {
 			y = 0;
@@ -978,12 +1075,12 @@ Visualizer.prototype.resize = function(forced) {
 			if (this.state.replay.hasDuration) {
 				this.shiftedMap.x = LEFT_PANEL_W;
 				this.shiftedMap.y = y;
-				this.shiftedMap.setSize(newSize.width - LEFT_PANEL_W
-						- RIGHT_PANEL_W, newSize.height - y - BOTTOM_PANEL_H);
+				this.shiftedMap.setSize(newSize.w - LEFT_PANEL_W
+						- RIGHT_PANEL_W, newSize.h - y - BOTTOM_PANEL_H);
 				var bg = this.btnMgr.groups['playback'];
 				w = 8 * 64;
-				if (w <= newSize.width) {
-					bg.x = ((newSize.width - w) / 2) | 0;
+				if (w <= newSize.w) {
+					bg.x = ((newSize.w - w) / 2) | 0;
 				} else {
 					bg.x = 0;
 				}
@@ -993,8 +1090,8 @@ Visualizer.prototype.resize = function(forced) {
 			} else {
 				this.shiftedMap.x = 0;
 				this.shiftedMap.y = y;
-				this.shiftedMap.setSize(newSize.width - RIGHT_PANEL_W,
-						newSize.height - y);
+				this.shiftedMap.setSize(newSize.w - RIGHT_PANEL_W, newSize.h
+						- y);
 			}
 			bg = this.btnMgr.groups['toolbar'];
 			bg.x = this.shiftedMap.x + this.shiftedMap.w;
@@ -1002,16 +1099,16 @@ Visualizer.prototype.resize = function(forced) {
 			// set button group extents
 			if (this.state.replay.hasDuration) {
 				bg = this.btnMgr.groups['fog'];
-				bg.h = newSize.height - this.shiftedMap.y - 8;
+				bg.h = newSize.h - this.shiftedMap.y - 8;
 				bg = this.btnMgr.groups['playback'];
-				bg.w = newSize.width - 2 * 48;
+				bg.w = newSize.w - 2 * 48;
 			}
 			bg = this.btnMgr.groups['toolbar'];
-			bg.h = newSize.height - this.shiftedMap.y - 8;
+			bg.h = newSize.h - this.shiftedMap.y - 8;
 		} else {
 			this.shiftedMap.x = 0;
 			this.shiftedMap.y = y;
-			this.shiftedMap.setSize(newSize.width, newSize.height - y);
+			this.shiftedMap.setSize(newSize.w, newSize.h - y);
 		}
 		this.setZoom(this.state.config['zoom']);
 		this.miniMap.x = this.shiftedMap.x + this.shiftedMap.w - 2
@@ -1024,16 +1121,26 @@ Visualizer.prototype.resize = function(forced) {
 		this.resizing = false;
 	}
 };
-Visualizer.prototype.showFog = function(fogPlayer) {
-	if (fogPlayer === undefined) {
-		this.state.fogPlayer = undefined;
+
+/**
+ * Enables or disables fog of war display.
+ * 
+ * @private
+ * @param sender
+ *        {ImageButton} the originating button
+ */
+Visualizer.prototype.showFog = function(sender) {
+	if (sender.locked) {
+		this.state.fogPlayer = sender.idx;
 	} else {
-		this.state.fogPlayer = fogPlayer;
+		this.state.fogPlayer = undefined;
 	}
 	this.director.draw();
 };
+
 /**
- * @private
+ * Redraws the map display and it's overlays. It is called by the
+ * {@link Director} and resembles the core of the visualization.
  */
 Visualizer.prototype.draw = function() {
 	var ctx, w, h, mx, my, x, y/* , ar, sr */;
@@ -1149,7 +1256,20 @@ Visualizer.prototype.draw = function() {
 		}, 0);
 	}
 };
+
+/**
+ * Internal wrapper around mouse move events.
+ * 
+ * @private
+ * @param mx
+ *        {Number} the X coordinate of the mouse relative to the upper-left
+ *        corner of the visualizer.
+ * @param my
+ *        {Number} the Y coordinate of the mouse relative to the upper-left
+ *        corner of the visualizer.
+ */
 Visualizer.prototype.mouseMoved = function(mx, my) {
+	var tick;
 	var deltaX = mx - this.mouseX;
 	var deltaY = my - this.mouseY;
 	var oldHint = this.hint;
@@ -1169,10 +1289,10 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
 					+ this.state.mouseCol;
 		}
 		if (this.mouseDown === 1) {
-			mx = (this.mouseX - this.scores.graph.x)
-					/ (this.scores.graph.w - 1);
-			mx = Math.round(mx * this.state.replay.duration);
-			this.director.gotoTick(mx);
+			tick = this.mouseX - this.scores.graph.x;
+			tick /= (this.scores.graph.w - 1);
+			tick = Math.round(tick * this.state.replay.duration);
+			this.director.gotoTick(tick);
 		} else if (this.mouseDown === 2
 				|| (this.mouseDown === 3 && this.miniMap.contains(this.mouseX,
 						this.mouseY))) {
@@ -1203,6 +1323,12 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
 		this.director.draw();
 	}
 };
+
+/**
+ * Internal wrapper around mouse down events.
+ * 
+ * @private
+ */
 Visualizer.prototype.mousePressed = function() {
 	if (this.state.options.interactive) {
 		if (this.state.replay.hasDuration
@@ -1223,16 +1349,38 @@ Visualizer.prototype.mousePressed = function() {
 		this.mouseMoved(this.mouseX, this.mouseY);
 	}
 };
+
+/**
+ * Internal wrapper around mouse button release events.
+ * 
+ * @private
+ */
 Visualizer.prototype.mouseReleased = function() {
 	this.mouseDown = 0;
 	this.btnMgr.mouseUp();
 	this.mouseMoved(this.mouseX, this.mouseY);
 };
+
+/**
+ * Internal wrapper around mouse exit window events.
+ * 
+ * @private
+ */
 Visualizer.prototype.mouseExited = function() {
 	this.btnMgr.mouseMove(-1, -1);
 	this.btnMgr.mouseUp();
 	this.mouseDown = 0;
 };
+
+/**
+ * Internal wrapper around key press events.
+ * 
+ * @private
+ * @param key
+ *        A key code for the pressed button.
+ * @returns {Boolean} false, if the browser should handle this key and true, if
+ *          the visualizer handled the key
+ */
 Visualizer.prototype.keyPressed = function(key) {
 	var d = this.director;
 	switch (key) {
@@ -1324,6 +1472,13 @@ function Options() {
 	this.user = undefined;
 }
 
+/**
+ * Converts a string parameter in the URL to a boolean value.
+ * 
+ * @param value
+ *        {String} the parameter
+ * @returns {Boolean} true, if the parameter is either '1' or 'true'
+ */
 Options.toBool = function(value) {
 	return value == '1' || value == 'true';
 };
@@ -1332,6 +1487,27 @@ Options.toBool = function(value) {
  * @class Holds public variables that need to be accessed from multiple modules
  *        of the visualizer.
  * @constructor
+ * @property {Number} scale The size of map squares in pixels.
+ * @property {Replay} replay The currently loaded replay.
+ * @property {Number} fogPlayer The array index of the player for which fog of
+ *           war is enabled. It is undefined if fog of war is disabled.
+ * @property {Number} time The current visualizer time or position in turns,
+ *           starting with 0 at the start of 'turn 1'.
+ * @property {Number} shiftX X coordinate displacement of the map.
+ * @property {Number} shiftY Y coordinate displacement of the map.
+ * @property {Boolean} mouseOverVis True, if the mouse is currently in the
+ *           active area of the map. This is used to quickly check if mouse-over
+ *           effects need to be drawn.
+ * @property {Number} mouseCol The current wrapped map column, the mouse is
+ *           hovering over. This value is only valid when
+ *           {@link State#mouseOverVis} is true.
+ * @property {Number} mouseRow The current wrapped map row, the mouse is
+ *           hovering over. This value is only valid when
+ *           {@link State#mouseOverVis} is true.
+ * @property {Boolean} isStreaming This should be true as long as the visualizer
+ *           is receiving data from a game in progress and be set to false when
+ *           the last turn has been sent as indicated by the result of
+ *           Stream.visualizerReady() in Stream.java.
  */
 function State() {
 	this.cleanUp();
@@ -1339,6 +1515,9 @@ function State() {
 	this.config = new Config();
 }
 
+/**
+ * Resets the state to initial values.
+ */
 State.prototype.cleanUp = function() {
 	this.scale = NaN;
 	this.replay = null;
@@ -1352,6 +1531,12 @@ State.prototype.cleanUp = function() {
 	this.isStreaming = false;
 };
 
+/**
+ * Helper function to ask the {@link Replay} for the fog of war of the chosen
+ * {@link State#fogPlayer} at the current {@link State#time}.
+ * 
+ * @returns {Boolean[][]} See {@link Replay#getFog}.
+ */
 State.prototype.getFogMap = function() {
 	return this.replay.getFog(this.fogPlayer, this.time | 0);
 };
