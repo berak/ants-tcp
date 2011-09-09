@@ -114,7 +114,9 @@ class AntsHttpServer(HTTPServer):
 class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def __init__(self, *args):
         SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, *args)
-        
+    
+    ## this suppresses logging from SimpleHTTPRequestHandler
+    ## comment this method if you want to see them
     def log_message(self,format,*args):
         pass
     
@@ -224,7 +226,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def page_counter(self,url,nelems):
         if nelems < table_lines: return ""
         html = "<table class='tablesorter'><tr><td>Page</td><td>&nbsp;&nbsp;"
-        for i in range(min((nelems+table_lines)/table_lines,16)):
+        for i in range(min((nelems+table_lines)/table_lines,10)):
             html += "<a href='"+url+"p"+str(i)+"'>"+str(i)+"</a>&nbsp;&nbsp;&nbsp;"
         html += "</td></tr></table>"
         return html
@@ -313,6 +315,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
 
 
+    ## set opts via remote admin url
     def serve_radmin(self, match):
         if self.server.radmin_page:
             u,q = match.group(0).split('?')
@@ -333,21 +336,23 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         if match and (len(match.group(0))>2):
             offset=table_lines * int(match.group(0)[2:])
             
-        self.server.game_data_lock.acquire()
-        i = 0
-        count=0
-        for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
-            i += 1
-            if i <= offset: continue
-            html += self.game_line(g)            
-            count += 1
-            if count> table_lines: break
-        html += "</tbody></table>"
-        html += self.page_counter("/", len(self.server.db.games) )
-        html += self.footer()
-        html += self.footer_sort('games')
-        html += "</body></html>"
-        self.server.game_data_lock.release()
+        if self.server.game_data_lock.acquire():
+            i = 0
+            count=0
+            for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
+                i += 1
+                if i <= offset: continue
+                html += self.game_line(g)            
+                count += 1
+                if count> table_lines: break
+            html += "</tbody></table>"
+            html += self.page_counter("/", len(self.server.db.games) )
+            html += self.footer()
+            html += self.footer_sort('games')
+            html += "</body></html>"
+            self.server.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for main")
         self.wfile.write(html)
         
         
@@ -356,26 +361,28 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"
-        self.server.game_data_lock.acquire()
-        html += self.rank_line( self.server.db.players[player] )
-        html += "</tbody></table>"
-        html += self.game_head()
-        html += "<tbody>"
-        i = 0
-        count=0
-        offset = 0
-        if match:
-            toks = match.group(0).split("/")
-            if len(toks)>3:
-                offset=table_lines * int(toks[3][1:])
-        for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
-            if player in g.players:
-                i += 1
-                if i <= offset: continue
-                count += 1
-                if count > table_lines: continue
-                html += self.game_line(g)                
-        self.server.game_data_lock.release()
+        if self.server.game_data_lock.acquire():
+            html += self.rank_line( self.server.db.players[player] )
+            html += "</tbody></table>"
+            html += self.game_head()
+            html += "<tbody>"
+            i = 0
+            count=0
+            offset = 0
+            if match:
+                toks = match.group(0).split("/")
+                if len(toks)>3:
+                    offset=table_lines * int(toks[3][1:])
+            for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
+                if player in g.players:
+                    i += 1
+                    if i <= offset: continue
+                    count += 1
+                    if count > table_lines: continue
+                    html += self.game_line(g)                
+            self.server.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for player")
         html += "</tbody></table>"
         html += self.page_counter("/player/"+player+"/", i )
         html += self.footer()
@@ -409,9 +416,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             toks = match.group(0).split("/")
             if len(toks)>2:
                 offset=table_lines * int(toks[2][1:])
-        self.server.game_data_lock.acquire()
-        pz = self.server.db.players.items()
-        self.server.game_data_lock.release()
+        if self.server.game_data_lock.acquire():
+            pz = self.server.db.players.items()
+            self.server.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for main")
         
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
@@ -481,9 +490,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
             
             
-    #
     ## static files will get cached in a dict
-    #
     def serve_file(self, match):
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:

@@ -227,34 +227,34 @@ class TcpGame(threading.Thread):
         f.close()
         
         # add to game db data shared with the webserver
-        ok = self.game_data_lock.acquire()
-        if not ok:
-            log.error("LOCK FAILED adding to games db game %d" % self.id )        
-        g = GameData()
-        g.id = self.id
-        g.map = self.map_name
-        g.turns = self.ants.turn
-        g.date = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") #asctime()
-        plr = {}
-        for i,p in enumerate(self.players):
-            if p in self.db.players:
-                player = self.db.players[p]
-            else:
-                player = PlayerData()
-                player.name = p
-                self.db.players[p] = player
-            player.ngames += 1
-            player.lastseen = g.date
-            plr[p] = (scores[i], states[i])
-        g.players = plr
-        self.db.games[g.id] = g    
+        if self.game_data_lock.acquire():
+            g = GameData()
+            g.id = self.id
+            g.map = self.map_name
+            g.turns = self.ants.turn
+            g.date = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") #asctime()
+            plr = {}
+            for i,p in enumerate(self.players):
+                if p in self.db.players:
+                    player = self.db.players[p]
+                else:
+                    player = PlayerData()
+                    player.name = p
+                    self.db.players[p] = player
+                player.ngames += 1
+                player.lastseen = g.date
+                plr[p] = (scores[i], states[i])
+            g.players = plr
+            self.db.games[g.id] = g    
 
-        # pop from list if there's too many games:
-        if len(self.db.games) > int(self.opts['db_max_games']):
-            k = self.db.games.keys().pop(0)
-            del(self.db.games[k])
-            
-        self.game_data_lock.release()
+            # pop from list if there's too many games:
+            if len(self.db.games) > int(self.opts['db_max_games']):
+                k = self.db.games.keys().pop(0)
+                del(self.db.games[k])
+                
+            self.game_data_lock.release()
+        else:
+            log.error("LOCK FAILED adding to games db game %d" % self.id )        
 
         # update trueskill
         if sum(ranks) >= len(ranks)-1:
@@ -268,14 +268,14 @@ class TcpGame(threading.Thread):
         # update rankings
         def by_skill( a,b ):
             return cmp(b[1].skill, a[1].skill)            
-        ok = self.game_data_lock.acquire()
-        if not ok:
+        if self.game_data_lock.acquire():
+            pz = self.db.players.items()        
+            pz.sort(by_skill)        
+            for i,p in enumerate(pz):
+                self.db.players[p[1].name].rank = i+1
+            self.game_data_lock.release()
+        else:
             log.error("LOCK FAILED adding to games db game %d" % self.id )        
-        pz = self.db.players.items()        
-        pz.sort(by_skill)        
-        for i,p in enumerate(pz):
-            self.db.players[p[1].name].rank = i+1
-        self.game_data_lock.release()
 
 
         # dbg display
@@ -298,12 +298,14 @@ class TcpGame(threading.Thread):
                 self.skill = skill
                 self.rank = rank
 
-        self.game_data_lock.acquire()
-        ts_players = []
-        for i, p in enumerate(players):
-            pdata = self.db.players[p]
-            ts_players.append( TrueSkillPlayer(i, (pdata.mu,pdata.sigma), ranks[i] ) )
-        self.game_data_lock.release()
+        if self.game_data_lock.acquire():
+            ts_players = []
+            for i, p in enumerate(players):
+                pdata = self.db.players[p]
+                ts_players.append( TrueSkillPlayer(i, (pdata.mu,pdata.sigma), ranks[i] ) )
+            self.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for ranks py 1")
         
         try:
             trueskill.AdjustPlayers(ts_players)
@@ -311,14 +313,16 @@ class TcpGame(threading.Thread):
             log.error(e)
             return
         
-        self.game_data_lock.acquire()
-        for i, p in enumerate(players):
-            pdata = self.db.players[p]
-            pdata.mu    = ts_players[i].skill[0]
-            pdata.sigma = ts_players[i].skill[1]
-            pdata.skill = pdata.mu - pdata.sigma * 3
-        self.game_data_lock.release()
-
+        if self.game_data_lock.acquire():
+            for i, p in enumerate(players):
+                pdata = self.db.players[p]
+                pdata.mu    = ts_players[i].skill[0]
+                pdata.sigma = ts_players[i].skill[1]
+                pdata.skill = pdata.mu - pdata.sigma * 3
+            self.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for ranks py 2")
+            
 
     def calk_ranks_js( self, players, ranks ):
         ## java needs ';' as separator for win23, ':' for nix&mac
@@ -326,14 +330,14 @@ class TcpGame(threading.Thread):
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 
-        ok = self.game_data_lock.acquire()
-        if not ok:
+        if self.game_data_lock.acquire():
+            lines = []
+            for i,p in enumerate(players):
+                pdata = self.db.players[p]
+                lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata.mu, pdata.sigma))
+            self.game_data_lock.release()
+        else:
             log.error("LOCK FAILED getting data for trueskill game %d" % self.id )        
-        lines = []
-        for i,p in enumerate(players):
-            pdata = self.db.players[p]
-            lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata.mu, pdata.sigma))
-        self.game_data_lock.release()
         
         for i,p in enumerate(players):
             tsupdater.stdin.write(lines[i])
@@ -353,20 +357,20 @@ class TcpGame(threading.Thread):
             return
             
         ## loop broken up to mimimize locking
-        ok = self.game_data_lock.acquire()
-        if not ok:
+        if self.game_data_lock.acquire():
+            for i,p in enumerate(players):
+                result = results[i]
+                if str(p) != result[0]:
+                    log.error("Unexpected player name in TSUpdate result. %s != %s" % (player, result[0]))
+                    break
+                pdata = self.db.players[p]
+                ## hmm, java returns floats formatted like: 1,03 here, due to my locale(german) ?
+                pdata.mu    = float(result[1].replace(",","."))
+                pdata.sigma = float(result[2].replace(",","."))
+                pdata.skill = pdata.mu - pdata.sigma * 3
+            self.game_data_lock.release()
+        else:
             log.error("LOCK FAILED writing data for trueskill game %d" % self.id )        
-        for i,p in enumerate(players):
-            result = results[i]
-            if str(p) != result[0]:
-                log.error("Unexpected player name in TSUpdate result. %s != %s" % (player, result[0]))
-                break
-            pdata = self.db.players[p]
-            ## hmm, java returns floats formatted like: 1,03 here, due to my locale(german) ?
-            pdata.mu    = float(result[1].replace(",","."))
-            pdata.sigma = float(result[2].replace(",","."))
-            pdata.skill = pdata.mu - pdata.sigma * 3
-        self.game_data_lock.release()
 
 
 
@@ -447,11 +451,11 @@ class TCPGameServer(object):
     def create_game(self):
         # we might crash..
         if self.db.latest % 10 == 1:
-            ok = self.game_data_lock.acquire()
-            if not ok:
+            if self.game_data_lock.acquire():
+                game_db.save(self.db)            
+                self.game_data_lock.release()
+            else:
                 log.error("LOCK FAILED saving db.")        
-            game_db.save(self.db)            
-            self.game_data_lock.release()
         
         # get a map and create antsgame
         self.db.latest += 1
