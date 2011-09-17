@@ -84,7 +84,10 @@ Button.prototype.mouseDown = function() {
 		case ButtonGroup.MODE_RADIO:
 			this.locked = !this.locked;
 			if (this.locked) {
-				if (this.onclick) this.onclick.invoke(this);
+				if (this.onclick) {
+					this.onclick.args = [ this.idx ];
+					this.onclick.invoke();
+				}
 				btns = this.group.buttons;
 				for (i = 0; i < btns.length; i++) {
 					if (btns[i].down !== 0) {
@@ -111,7 +114,10 @@ Button.prototype.mouseUp = function() {
 			if (this.locked) {
 				this.down = 1;
 			} else {
-				if (this.onclick) this.onclick.invoke(this);
+				if (this.onclick) {
+					this.onclick.args = undefined;
+					this.onclick.invoke();
+				}
 				this.down = 0;
 			}
 			break;
@@ -523,11 +529,11 @@ ButtonManager.prototype.addTextGroup = function(name, mode, border) {
  * Redraws all visible button groups.
  */
 ButtonManager.prototype.draw = function() {
-	var name = undefined;
-	for (name in this.groups)
-		if (this.groups.hasOwnProperty(name)) {
-			if (this.groups[name].mode !== ButtonGroup.MODE_HIDDEN) {
-				this.groups[name].draw();
+	var groupName = undefined;
+	for (groupName in this.groups)
+		if (this.groups.hasOwnProperty(groupName)) {
+			if (this.groups[groupName].mode !== ButtonGroup.MODE_HIDDEN) {
+				this.groups[groupName].draw();
 			}
 		}
 };
@@ -556,10 +562,10 @@ ButtonManager.prototype.getGroup = function(name) {
  */
 ButtonManager.prototype.mouseMove = function(mx, my) {
 	var result = null;
-	var name = undefined;
-	for (name in this.groups) {
+	var groupName = undefined;
+	for (groupName in this.groups) {
 		// use of method, to allow Eclipse to infer the type
-		var bg = this.getGroup(name);
+		var bg = this.getGroup(groupName);
 		if (bg.mode != ButtonGroup.MODE_HIDDEN && my >= bg.y
 				&& my < bg.y + bg.h && mx >= bg.x && mx < bg.x + bg.w) {
 			result = bg.mouseMove(mx, my);

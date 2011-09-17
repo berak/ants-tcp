@@ -186,7 +186,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     };
 
                     function init() {
-                        var visualizer = new Visualizer(document.body, '/data/');
+                        var options = new Options();
+                        options.data_dir = '/data/';
+                        options.embedded = true;
+                        var visualizer = new Visualizer(document.body, options);
                         visualizer.loadReplayData('"""+replaydata+"""');
                     }
                 </script>
@@ -255,33 +258,46 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += self.footer_sort('maps')
         html += "</body></html>"
         self.wfile.write(html)
-        
-        
+
+
+    ## nplayers ngames survived_per100 eliminated_per100 timeout_per100 crashed_per100 draw_per100
     def serve_stats(self,match):
         self.send_head("text/plain")
         i=0
         txt = "%d %d" % (len(book.players),len(book.games))
-        ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0}
-        for ng,g in sorted(self.server.db.games.iteritems(), reverse=True):
-            for np,p in g.players.iteritems():
+        ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0,"draw":0}
+        if self.server.game_data_lock.acquire():
+            srt = sorted(self.server.db.games.iteritems(), reverse=True)
+            for ng,g in srt:
+                for np,p in g.players.iteritems():
+                    if i == 100:  break
+                    ct[ p[1] ] += 1
+                    i += 1
+                if i == table_lines:  break
+            i=0
+            for ng,g in srt:
+                try:
+                    ct["draw"] += g.draws
+                except:pass
                 if i == 100:  break
-                ct[ p[1] ] += 1
                 i += 1
-            if i == table_lines:  break
+            self.server.game_data_lock.release()
+            
         txt += " %d" % ct["survived"] 
         txt += " %d" % ct["eliminated"] 
         txt += " %d" % ct["timeout"] 
         txt += " %d" % ct["crashed"] 
+        txt += " %d" % ct["draw"] 
         #~ txt += " ".join([p for p in book.players])
         self.wfile.write(txt)
         
     def serve_online(self,match):
         html = self.header( "online" )
-        html += "%d players<ul>" % len(book.players)
+        html += "&nbsp;&nbsp;&nbsp;%d players<ul>" % len(book.players)
         for p in book.players:
             html += "<li>%s</li>\n" % p
         html += "</ul><br>"
-        html += "%d games<ul>" % len(book.games)
+        html += "&nbsp;&nbsp;&nbsp;%d games<ul>" % len(book.games)
         for g in book.games:
             html += "<li>%s</li>\n" % g
         html += "</ul>"
@@ -290,7 +306,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
         
     def serve_charts(self,match):
-        html = self.header( "stats" )
+        html = self.header( "charts" )
         html += """
             <div bgcolor='#aaa'>
             <br> &nbsp; &nbsp; &nbsp; 
@@ -303,6 +319,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <font size=1 color='#f00'>Eliminated</font>
             <font size=1 color='#00f'>Timeout</font>
             <font size=1 color='#0ff'>Crashed</font>
+            &nbsp;&nbsp;<font size=1 color='#f0f'>Draw</font>
             <br> &nbsp; &nbsp; &nbsp; 
             <canvas id="gstat" width="800" height="100"></canvas>            
             <script type="text/javascript" src="/js/smoothie.js"></script>

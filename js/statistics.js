@@ -39,7 +39,7 @@ function updateTimeLine()
       var s = http.responseText;
       var p = s.split(" ");
       machine1.update( [p[0],p[1]] );        
-      machine2.update( [p[2],p[3],p[4],p[5]] );        
+      machine2.update( [p[2],p[3],p[4],p[5],p[6]] );        
     }
   }
 }
@@ -54,6 +54,7 @@ function loadTabs()
   machine2.add( "Eliminated", '255, 0, 0', 4 );
   machine2.add( "Timeout", '0, 0, 255', 4 );
   machine2.add( "Crashed", '0, 255, 255', 4 );
+  machine2.add( "Draw", '255,0, 255', 4 );
   setInterval(function() {
    updateTimeLine();
   }, 2500);        

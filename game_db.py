@@ -18,6 +18,7 @@ class GameData():
 	date = None # time.asctime
 	map = None
 	turns = 0
+	draws = 0
 	players={}  # {name:(score,status)}
 
 

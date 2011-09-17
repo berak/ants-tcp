@@ -216,6 +216,14 @@ class TcpGame(threading.Thread):
             
         scores = self.ants.get_scores()
         ranks = [sorted(scores, reverse=True).index(x) for x in scores]
+
+        # count draws
+        draws = 0
+        hist = [0]*len(ranks)
+        for r in ranks:
+            hist[r] += 1
+        for h in hist:
+            if h:  draws += (h-1)
             
         # save replay, add playernames to it
         game_result['playernames'] = []
@@ -232,6 +240,7 @@ class TcpGame(threading.Thread):
             g.id = self.id
             g.map = self.map_name
             g.turns = self.ants.turn
+            g.draws = draws
             g.date = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") #asctime()
             plr = {}
             for i,p in enumerate(self.players):
@@ -284,7 +293,7 @@ class TcpGame(threading.Thread):
         secs = ds - mins*60
         log.info("saved game %d : %d turns %dm %2.2fs" % (self.id,self.ants.turn,mins,secs) )
         log.info("players: %s" % self.players)
-        log.info("ranks  : %s" % ranks)
+        log.info("ranks  : %s   %s draws" % (ranks, draws) )
         log.info("scores : %s" % scores)
             
         
@@ -393,8 +402,8 @@ class TCPGameServer(object):
         if name in self.db.players:
             pw = self.db.players[name].password
             if pw != password:
-                log.warning("invalid password given for %s : %s : %s" % (name, pw, password) )
-                sock.sendall("INFO: invalid password given for %s : %s\n"% (name, password) )
+                log.warning("invalid password for %s : %s : %s" % (name, pw, password) )
+                sock.sendall("INFO: invalid password for %s : %s\n"% (name, password) )
                 sock.sendall("end\ngo\n")
                 sock.close()
                 return -1
@@ -433,6 +442,7 @@ class TCPGameServer(object):
         if max_players < 2:
             max_players = 2
         base_name = random.choice( self.maps.keys() )
+        #~ while( self.maps[base_name][0] < 4 ):
         while( self.maps[base_name][0] > max_players ):
             base_name = random.choice( self.maps.keys() )
         self.maps[base_name][3] += 1
@@ -449,7 +459,7 @@ class TCPGameServer(object):
         
     
     def create_game(self):
-        # we might crash..
+        # backup each 10.
         if self.db.latest % 10 == 1:
             if self.game_data_lock.acquire():
                 game_db.save(self.db)            
@@ -469,9 +479,10 @@ class TCPGameServer(object):
         return g
 
 
-    def reject_client(self,client, message):
-        try:                       
-            log.info(message)
+    def reject_client(self,client, message,dolog=True):
+        try:
+            if dolog:
+                log.info(message)
             client.sendall("INFO: " + message + "\nend\ngo\n")
             client.close()
             client = None
@@ -511,11 +522,11 @@ class TCPGameServer(object):
                         continue
                     # if in 'single game per player(name)' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):
-                        self.reject_client(client, "%s is already running a game." % name )
+                        self.reject_client(client, "%s is already running a game." % name, False )
                         continue
                     # already in next_game ?
                     if name in self.next_game.players:                        
-                        self.reject_client(client, '%s is already queued for game %d' % (name, self.next_game.id) )
+                        self.reject_client(client, '%s is already queued for game %d' % (name, self.next_game.id), False )
                         continue
                         
                     # start game if enough players joined

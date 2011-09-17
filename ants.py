@@ -2,10 +2,6 @@
 from random import randrange, choice, shuffle, randint, seed
 from math import sqrt
 from collections import deque, defaultdict
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
 
 from fractions import Fraction
 import operator
@@ -1340,7 +1336,8 @@ class Ants(Game):
         pop_count[FOOD] = len(self.current_food)
         pop_total = sum(pop_count.values())
         for owner, count in pop_count.items():
-            if count >= pop_total * self.cutoff_percent:
+            if (count >= pop_total * self.cutoff_percent
+                    and self.score[owner] == max(self.score)):
                 if self.cutoff_bot == owner:
                     self.cutoff_turns += 1
                 else:
@@ -1457,7 +1454,7 @@ class Ants(Game):
         ant_count = [0 for _ in range(self.num_players+1)]
         for ant in self.current_ants.values():
             ant_count[ant.owner] += 1
-        stats = OrderedDict()
+        stats = {}
         stats['ant_count'] = ant_count
         stats['food'] = len(self.current_food)
         stats['cutoff'] = 'Food' if self.cutoff_bot == FOOD else '-' if self.cutoff_bot == LAND else self.cutoff_bot

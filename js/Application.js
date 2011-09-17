@@ -48,13 +48,11 @@ LoadingState = {
  * @constructor
  * @param {Node}
  *        container the HTML element, that the visualizer will embed into
- * @param {String}
- *        dataDir This relative path to the visualizer data files. You will get
- *        an error message if you forget the tailing '/'. See
- *        {@link Options#data_dir}.
- * @param {Boolean}
- *        interactive Optional; If true or omitted, then the visualizer is
- *        interactive. See {@link Options#interactive}.
+ * @param {Options}
+ *        options Adds immutable options. These can be overridden via URL
+ *        parameters. The visualizer will not copy this {@link Options}
+ *        instance, but instead use it directly. Modifications to the object at
+ *        a later point will result in undefined behavior.
  * @param {Number}
  *        w an optional maximum width or undefined
  * @param {Number}
@@ -64,7 +62,7 @@ LoadingState = {
  *        respective value in the user's configuration or the default; see
  *        {@link Config} for possible options
  */
-Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
+Visualizer = function(container, options, w, h, configOverrides) {
 	var parameters, equalPos, value, i, text, imgDir;
 	var key = undefined;
 	var vis = this;
@@ -101,10 +99,6 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 		/** @private */
 		this.miniMap = new CanvasElementMiniMap(this.state);
 		/** @private */
-		this.scores = new CanvasElementStats(this.state, 'scores', 'scores');
-		/** @private */
-		this.counts = new CanvasElementStats(this.state, '# of ants', 'counts');
-		/** @private */
 		this.turns = undefined;
 		/** @private */
 		this.w = w;
@@ -114,8 +108,7 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 		this.resizing = false;
 		if (configOverrides) this.state.config.overrideFrom(configOverrides);
 		/** @private */
-		this.state.options.data_dir = dataDir;
-		this.state.options.interactive = !(interactive === false);
+		this.state.options = options;
 		// read URL parameters and store them in the parameters object
 		parameters = window.location.href;
 		if ((i = parameters.indexOf('?')) !== -1) {
@@ -126,31 +119,35 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 				value = parameters[i].substr(equalPos + 1);
 				switch (key) {
 					case 'debug':
-						this.state.options.debug = Options.toBool(value);
+						this.state.options['debug'] = Options.toBool(value);
 						break;
 					case 'interactive':
-						this.state.options.interactive = Options.toBool(value);
+						this.state.options['interactive'] = Options
+								.toBool(value);
 						break;
 					case 'profile':
-						this.state.options.profile = Options.toBool(value);
+						this.state.options['profile'] = Options.toBool(value);
+						break;
+					case 'decorated':
+						this.state.options['decorated'] = Options.toBool(value);
 						break;
 					case 'col':
-						this.state.options.col = parseInt(value);
+						this.state.options['col'] = parseInt(value);
 						break;
 					case 'row':
-						this.state.options.row = parseInt(value);
+						this.state.options['row'] = parseInt(value);
 						break;
 					case 'turn':
-						this.state.options.turn = parseInt(value);
+						this.state.options['turn'] = parseInt(value);
 						break;
 					case 'data_dir':
-						this.state.options.data_dir = value;
+						this.state.options['data_dir'] = value;
 						break;
 					case 'game':
-						this.state.options.game = value;
+						this.state.options['game'] = value;
 						break;
 					case 'user':
-						this.state.options.user = value;
+						this.state.options['user'] = value;
 						break;
 					case 'config':
 						this.state.config.overrideFrom(JSON
@@ -159,22 +156,29 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 			}
 		}
 		// set default zoom to max if we are going to zoom in on a square
-		if (this.state.options.row !== undefined
-				&& this.state.options.col !== undefined) {
+		if (!isNaN(this.state.options['row'])
+				&& !isNaN(this.state.options['col'])) {
 			this.state.config['zoom'] = 1 << Math.ceil(Math.log(ZOOM_SCALE)
 					/ Math.LN2);
 		}
+		imgDir = (this.state.options['data_dir'] || '') + 'img/';
 		/** @private */
-		imgDir = (this.state.options.data_dir || '') + 'img/';
 		this.imgMgr = new ImageManager(imgDir, this, this.completedImages);
 		this.imgMgr.add('water.png');
-		this.imgMgr.add('playback.png');
-		this.imgMgr.add('fog.png');
-		this.imgMgr.add('toolbar.png');
-		this.imgMgr.add('rank.png');
-		this.imgMgr.add('graph_options.png');
-		/** @private */
-		this.btnMgr = new ButtonManager(null);
+		if (this.state.options['decorated']) {
+			this.imgMgr.add('playback.png');
+			this.imgMgr.add('fog.png');
+			this.imgMgr.add('toolbar.png');
+			this.imgMgr.add('rank.png');
+			this.imgMgr.add('graph_options.png');
+			/** @private */
+			this.btnMgr = new ButtonManager(null);
+			/** @private */
+			this.scores = new CanvasElementStats(this.state, 'scores', 'scores');
+			/** @private */
+			this.counts = new CanvasElementStats(this.state, '# of ants',
+					'counts');
+		}
 		/** @private */
 		this.director = new Director(this);
 		/** @private */
@@ -235,7 +239,7 @@ Visualizer = function(container, dataDir, interactive, w, h, configOverrides) {
 		this.exceptionOut(error, false);
 		throw error;
 	}
-}
+};
 
 /**
  * Prints a message on the screen and then executes a function. Usually the
@@ -367,7 +371,9 @@ Visualizer.prototype.exceptionOut = function(error, cleanUp) {
 Visualizer.prototype.cleanUp = function() {
 	this.loading = LoadingState.CLEANUP;
 	if (this.replayReq) this.replayReq.abort();
-	this.imgMgr.cleanUp();
+	if (this.state.options['decorated']) {
+		this.imgMgr.cleanUp();
+	}
 	this.director.cleanUp();
 	this.state.cleanUp();
 	this.replayStr = undefined;
@@ -427,7 +433,7 @@ Visualizer.prototype.loadReplayDataFromURI = function(file) {
 					}
 				};
 				request.open("GET", file);
-				if (vis.state.options.debug) {
+				if (vis.state.options['debug']) {
 					request.setRequestHeader('Cache-Control', 'no-cache');
 				}
 				request.send();
@@ -507,8 +513,9 @@ Visualizer.prototype.streamingStart = function() {
 Visualizer.prototype.loadParseReplay = function() {
 	var vis = this;
 	this.progress('Parsing the replay...', function() {
-		var debug = vis.state.options.debug;
-		var user = vis.state.options.user;
+		var debug = vis.state.options['debug'];
+		var user = vis.state.options['user'];
+		if (user === '') user = undefined;
 		if (vis.replayStr) {
 			vis.state.replay = new Replay(vis.replayStr, debug, user);
 			vis.replayStr = undefined;
@@ -576,9 +583,12 @@ Visualizer.prototype.tryStart = function() {
 	// we need to parse the replay, unless it has been parsed by the
 	// XmlHttpRequest callback
 	if (this.state.replay) {
-		if (this.main.ctx && !this.imgMgr.error && !this.imgMgr.pending) {
+		if (!this.main.ctx) return;
+		if (this.state.options['decorated']) {
+			if (this.imgMgr.error) return;
+			if (this.imgMgr.pending) return;
 			this.btnMgr.ctx = this.main.ctx;
-			if (this.state.options.interactive) {
+			if (this.state.options['interactive']) {
 				// add static buttons
 				if (!this.btnMgr.groups['playback']) {
 					if (this.state.replay.hasDuration) {
@@ -631,8 +641,7 @@ Visualizer.prototype.tryStart = function() {
 								'save and reuse the current settings');
 					}
 
-					if (!window.isFullscreenSupported
-							|| window.isFullscreenSupported()) {
+					if (!this.state.options['embedded']) {
 						dlg = new Delegate(this, function() {
 							var fs = this.state.config['fullscreen'];
 							this.setFullscreen(!fs);
@@ -656,14 +665,7 @@ Visualizer.prototype.tryStart = function() {
 					});
 					bg.addButton(3, dlg, 'zoom out');
 
-					dlg = new Delegate(this, function() {
-						this.state.shiftX = this.mapCenterX;
-						this.state.shiftY = this.mapCenterY;
-						var btn = this.btnMgr.groups['toolbar'].getButton(4);
-						btn.enabled = false;
-						btn.draw();
-						this.director.draw();
-					});
+					dlg = new Delegate(this, this.centerMap);
 					bg.addButton(4, dlg, 'center the map').enabled = false;
 
 					dlg = new Delegate(this, function() {
@@ -676,27 +678,21 @@ Visualizer.prototype.tryStart = function() {
 									'toggles: 1. player letters on ants, 2. global ids on ants');
 
 					if (this.state.replay.hasDuration) {
-						dlg = new Delegate(this, function() {
-							this.state.config['speedFactor'] += 1;
-							this.calculateReplaySpeed();
-						});
+						dlg = new Delegate(this, this.modifySpeed, [ +1 ]);
 						bg.addButton(6, dlg);
 
-						dlg = new Delegate(this, function() {
-							this.state.config['speedFactor'] -= 1;
-							this.calculateReplaySpeed();
-						});
+						dlg = new Delegate(this, this.modifySpeed, [ -1 ]);
 						bg.addButton(7, dlg);
 					}
 				}
 				// generate fog images
-				colors = [];
-				for (i = 0; i < this.state.replay.players; i++) {
-					colors.push(this.state.replay.meta['playercolors'][i]);
-				}
-				this.imgMgr.colorize(4, colors);
-				this.imgMgr.colorize(2, colors);
 				if (this.state.replay.hasDuration) {
+					colors = [];
+					for (i = 0; i < this.state.replay.players; i++) {
+						colors.push(this.state.replay.meta['playercolors'][i]);
+					}
+					this.imgMgr.colorize(4, colors);
+					this.imgMgr.colorize(2, colors);
 					bg = this.btnMgr.addImageGroup('fog',
 							this.imgMgr.patterns[2], ImageButtonGroup.VERTICAL,
 							ButtonGroup.MODE_RADIO, 2);
@@ -715,10 +711,12 @@ Visualizer.prototype.tryStart = function() {
 			if (this.state.replay.hasDuration) {
 				this.addPlayerButtons();
 			}
-			// calculate speed from duration and config settings
-			this.director.duration = this.state.replay.duration;
-			this.calculateReplaySpeed();
-			if (this.state.options.interactive) {
+		}
+		// calculate speed from duration and config settings
+		this.director.duration = this.state.replay.duration;
+		this.calculateReplaySpeed();
+		if (this.state.options['interactive']) {
+			if (this.state.options['decorated']) {
 				this.director.onstate = function() {
 					var btn = vis.btnMgr.groups['playback'].buttons[4];
 					btn.offset = (vis.director.playing() ? 7 : 4)
@@ -729,82 +727,106 @@ Visualizer.prototype.tryStart = function() {
 					btn.down = 0;
 					btn.draw();
 				};
-				// this will fire once in FireFox when a key is held down
-				document.onkeydown = function(event) {
-					if (!(event.shiftKey || event.ctrlKey || event.altKey || event.metaKey)) {
-						if (vis.keyPressed(event.keyCode)) {
-							if (event.preventDefault)
-								event.preventDefault();
-							else
-								event.returnValue = false;
-							return false;
-						}
-					}
-					return true;
-				};
 			}
-			// setup mouse handlers
-			this.main.canvas.onmousemove = function(event) {
-				var mx = 0;
-				var my = 0;
-				var obj = this;
-				if (this.offsetParent) do {
-					mx += obj.offsetLeft;
-					my += obj.offsetTop;
-				} while ((obj = obj.offsetParent))
-				mx = event.clientX
-						- mx
-						+ ((window.scrollX === undefined)
-								? (document.body.parentNode.scrollLeft !== undefined)
-										? document.body.parentNode.scrollLeft
-										: document.body.scrollLeft
-								: window.scrollX);
-				my = event.clientY
-						- my
-						+ ((window.scrollY === undefined)
-								? (document.body.parentNode.scrollTop !== undefined)
-										? document.body.parentNode.scrollTop
-										: document.body.scrollTop
-								: window.scrollY);
-				vis.mouseMoved(mx, my);
-			};
-			this.main.canvas.onmouseout = function() {
-				vis.mouseExited();
-			};
-			this.main.canvas.onmousedown = function(event) {
-				if (event.which === 1) {
-					vis.mousePressed();
+			// this will fire once in FireFox when a key is held down
+			document.onkeydown = function(event) {
+				if (!(event.shiftKey || event.ctrlKey || event.altKey || event.metaKey)) {
+					if (vis.keyPressed(event.keyCode)) {
+						if (event.preventDefault)
+							event.preventDefault();
+						else
+							event.returnValue = false;
+						return false;
+					}
 				}
+				return true;
 			};
-			this.main.canvas.onmouseup = function(event) {
-				if (event.which === 1) {
-					vis.mouseReleased();
-				}
-			};
-			window.onresize = function() {
-				vis.resize();
-			};
-			Visualizer.prototype.focused = this;
-			// move to a specific row and col
-			this.calculateMapCenter(ZOOM_SCALE);
-			this.state.shiftX = this.mapCenterX;
-			this.state.shiftY = this.mapCenterY;
+		}
+		// setup mouse handlers
+		this.main.canvas.onmousemove = function(event) {
+			var mx = 0;
+			var my = 0;
+			var obj = this;
+			if (this.offsetParent) do {
+				mx += obj.offsetLeft;
+				my += obj.offsetTop;
+			} while ((obj = obj.offsetParent))
+			mx = event.clientX
+					- mx
+					+ ((window.scrollX === undefined)
+							? (document.body.parentNode.scrollLeft !== undefined)
+									? document.body.parentNode.scrollLeft
+									: document.body.scrollLeft : window.scrollX);
+			my = event.clientY
+					- my
+					+ ((window.scrollY === undefined)
+							? (document.body.parentNode.scrollTop !== undefined)
+									? document.body.parentNode.scrollTop
+									: document.body.scrollTop : window.scrollY);
+			vis.mouseMoved(mx, my);
+		};
+		this.main.canvas.onmouseout = function() {
+			vis.mouseExited();
+		};
+		this.main.canvas.onmousedown = function(event) {
+			if (event.which === 1) {
+				vis.mousePressed();
+			}
+		};
+		this.main.canvas.onmouseup = function(event) {
+			if (event.which === 1) {
+				vis.mouseReleased();
+			}
+		};
+		this.main.canvas.ondblclick = function(event) {
+			vis.centerMap();
+		};
+		window.onresize = function() {
+			vis.resize();
+		};
+		Visualizer.prototype.focused = this;
+		// move to a specific row and col
+		this.calculateMapCenter(ZOOM_SCALE);
+		this.state.shiftX = this.mapCenterX;
+		this.state.shiftY = this.mapCenterY;
 
-			this.log.style.display = 'none';
-			this.main.canvas.style.display = 'inline';
-			this.loading = LoadingState.IDLE;
-			this.setFullscreen(this.state.config['fullscreen']);
-			if (this.state.replay.hasDuration) {
-				if (this.state.options.turn) {
-					this.director.gotoTick(this.state.options.turn - 1);
-				} else {
-					this.director.play();
-				}
+		this.log.style.display = 'none';
+		this.main.canvas.style.display = 'inline';
+		this.loading = LoadingState.IDLE;
+		this.setFullscreen(this.state.config['fullscreen']);
+		if (this.state.replay.hasDuration) {
+			if (!isNaN(this.state.options['turn'])) {
+				this.director.gotoTick(this.state.options['turn'] - 1);
+			} else {
+				this.director.play();
 			}
 		}
 	} else if (this.replayStr) {
 		this.loadParseReplay();
 	}
+};
+
+Visualizer.prototype.centerMap = function() {
+	this.state.shiftX = this.mapCenterX;
+	this.state.shiftY = this.mapCenterY;
+	if (this.state.options['decorated']) {
+		var btn = this.btnMgr.groups['toolbar'].getButton(4);
+		btn.enabled = false;
+		btn.draw();
+	}
+	this.director.draw();
+};
+
+/**
+ * Changes the replay speed.
+ * 
+ * @private
+ * @param {Number}
+ *        modifier {@link Config#speedFactor} is changed by this amount.
+ */
+Visualizer.prototype.modifySpeed = function(modifier) {
+	this.state.config['speedFactor'] += modifier;
+	this.calculateReplaySpeed();
 };
 
 /**
@@ -821,7 +843,7 @@ Visualizer.prototype.calculateMapCenter = function(scale) {
 	var options = this.state.options;
 	var cols = this.state.replay.cols;
 	var rows = this.state.replay.rows;
-	if (options.row !== undefined && options.col !== undefined) {
+	if (!isNaN(options.row) && !isNaN(options.col)) {
 		this.mapCenterX = scale * (0.5 * cols - 0.5 - options.col % cols);
 		this.mapCenterY = scale * (0.5 * rows - 0.5 - options.row % rows);
 	} else {
@@ -840,7 +862,8 @@ Visualizer.prototype.addPlayerButtons = function() {
 	var bg = this.btnMgr.addTextGroup('players', ButtonGroup.MODE_NORMAL, 2);
 	var vis = this;
 	var dlg = undefined;
-	var gameId = this.state.replay.meta['game_id'] || this.state.options.game;
+	var gameId = this.state.replay.meta['game_id']
+			|| this.state.options['game'];
 	if (gameId !== undefined) {
 		if (this.state.replay.meta['game_url']) {
 			dlg = new Delegate(this, function() {
@@ -915,7 +938,8 @@ Visualizer.prototype.calculateReplaySpeed = function() {
 	var hintText = function(base) {
 		return 'set speed modifier to ' + ((base > 0) ? '+' + base : base);
 	};
-	if (this.state.options.interactive && this.state.replay.hasDuration) {
+	if (this.state.options['interactive'] && this.state.options['decorated']
+			&& this.state.replay.hasDuration) {
 		var speedUpBtn = this.btnMgr.groups['toolbar'].getButton(6);
 		speedUpBtn.hint = hintText(this.state.config['speedFactor'] + 1);
 		var slowDownBtn = this.btnMgr.groups['toolbar'].getButton(7);
@@ -932,7 +956,7 @@ Visualizer.prototype.calculateReplaySpeed = function() {
  */
 Visualizer.prototype.calculateCanvasSize = function() {
 	var width, height;
-	var embed = window.isFullscreenSupported && !window.isFullscreenSupported();
+	var embed = this.state.options['embedded'];
 	embed = embed || !this.state.config['fullscreen'];
 	width = (this.w && embed) ? this.w : window.innerWidth;
 	height = (this.h && embed) ? this.h : window.innerHeight;
@@ -941,7 +965,9 @@ Visualizer.prototype.calculateCanvasSize = function() {
 
 /**
  * Enables or disables fullscreen mode. In fullscreen mode the &lt;body&gt;
- * element is replaced with a new one that contains only the visualizer.
+ * element is replaced with a new one that contains only the visualizer. For the
+ * Java/Rhino version a special setFullscreen() method on the window object is
+ * called.
  * 
  * @private
  * @param enable
@@ -949,7 +975,7 @@ Visualizer.prototype.calculateCanvasSize = function() {
  *        supported.
  */
 Visualizer.prototype.setFullscreen = function(enable) {
-	if (!window.isFullscreenSupported || window.isFullscreenSupported()) {
+	if (!this.state.options['embedded']) {
 		if (window.setFullscreen) {
 			this.state.config['fullscreen'] = window.setFullscreen(enable);
 		} else {
@@ -1011,7 +1037,7 @@ Visualizer.prototype.setZoom = function(zoom) {
 	this.antsMap.setSize(this.map.w, this.map.h);
 	this.fog.setSize(Math.min(this.map.w, this.shiftedMap.w), Math.min(
 			this.map.h, this.shiftedMap.h));
-	if (this.state.options.interactive) {
+	if (this.state.options['interactive'] && this.state.options['decorated']) {
 		var zoomInBtn = this.btnMgr.groups['toolbar'].getButton(2);
 		zoomInBtn.enabled = !(this.state.scale === ZOOM_SCALE);
 		zoomInBtn.draw();
@@ -1056,7 +1082,7 @@ Visualizer.prototype.resize = function(forced) {
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 		}
 		this.resizing = true;
-		if (this.state.replay.hasDuration) {
+		if (this.state.replay.hasDuration && this.state.options['decorated']) {
 			// 1. player buttons
 			y = this.btnMgr.groups['players'].cascade(newSize.w) + 4;
 			// 2. scores bar & time line
@@ -1071,7 +1097,8 @@ Visualizer.prototype.resize = function(forced) {
 			y = 0;
 		}
 		// 3. visualizer placement
-		if (this.state.options.interactive) {
+		if (this.state.options['interactive']
+				&& this.state.options['decorated']) {
 			if (this.state.replay.hasDuration) {
 				this.shiftedMap.x = LEFT_PANEL_W;
 				this.shiftedMap.y = y;
@@ -1116,7 +1143,7 @@ Visualizer.prototype.resize = function(forced) {
 				this.miniMap.y = this.shiftedMap.y + 2;
 		this.miniMap.setSize(this.state.replay.cols, this.state.replay.rows);
 		// redraw everything
-		this.btnMgr.draw();
+		if (this.state.options['decorated']) this.btnMgr.draw();
 		this.director.draw(true);
 		this.resizing = false;
 	}
@@ -1126,15 +1153,12 @@ Visualizer.prototype.resize = function(forced) {
  * Enables or disables fog of war display.
  * 
  * @private
- * @param sender
- *        {ImageButton} the originating button
+ * @param idx
+ *        {Number} The index of the player for which fog is to be displayed or
+ *        undefined.
  */
-Visualizer.prototype.showFog = function(sender) {
-	if (sender.locked) {
-		this.state.fogPlayer = sender.idx;
-	} else {
-		this.state.fogPlayer = undefined;
-	}
+Visualizer.prototype.showFog = function(idx) {
+	this.state.fogPlayer = idx;
 	this.director.draw();
 };
 
@@ -1143,7 +1167,7 @@ Visualizer.prototype.showFog = function(sender) {
  * {@link Director} and resembles the core of the visualization.
  */
 Visualizer.prototype.draw = function() {
-	var ctx, w, h, mx, my, x, y/* , ar, sr */;
+	var ctx, w, h, mx, my, x, y;
 	var loc = this.shiftedMap;
 
 	// map
@@ -1221,7 +1245,7 @@ Visualizer.prototype.draw = function() {
 		ctx.restore();
 	}
 
-	if (this.state.replay.hasDuration) {
+	if (this.state.replay.hasDuration && this.state.options['decorated']) {
 		if (this.scores.validate() || this.resizing) {
 			ctx.drawImage(this.scores.canvas, this.scores.x, this.scores.y);
 		}
@@ -1281,7 +1305,7 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
 	this.state.mouseRow = (Math.wrapAround(my - this.map.y - this.state.shiftY,
 			this.state.scale * this.state.replay.rows) / this.state.scale) | 0;
 	this.hint = '';
-	if (this.state.options.interactive) {
+	if (this.state.options['interactive']) {
 		if ((this.state.mouseOverVis = this.map.contains(this.mouseX,
 				this.mouseY)
 				&& this.shiftedMap.contains(this.mouseX, this.mouseY))) {
@@ -1305,15 +1329,17 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
 				this.state.shiftY = (this.state.replay.rows / 2 - (this.mouseY - this.miniMap.y))
 						* this.state.scale;
 			}
-			var centerBtn = this.btnMgr.groups['toolbar'].getButton(4);
-			centerBtn.enabled = this.state.shiftX !== 0
-					|| this.state.shiftY !== 0;
-			centerBtn.draw();
+			if (this.state.options['decorated']) {
+				var centerBtn = this.btnMgr.groups['toolbar'].getButton(4);
+				centerBtn.enabled = this.state.shiftX !== 0
+						|| this.state.shiftY !== 0;
+				centerBtn.draw();
+			}
 			this.director.draw();
-		} else {
+		} else if (this.state.options['decorated']) {
 			btn = this.btnMgr.mouseMove(mx, my);
 		}
-	} else {
+	} else if (this.state.options['decorated']) {
 		btn = this.btnMgr.mouseMove(mx, my);
 	}
 	if (btn && btn.hint) {
@@ -1330,8 +1356,9 @@ Visualizer.prototype.mouseMoved = function(mx, my) {
  * @private
  */
 Visualizer.prototype.mousePressed = function() {
-	if (this.state.options.interactive) {
+	if (this.state.options['interactive']) {
 		if (this.state.replay.hasDuration
+				&& this.state.options['decorated']
 				&& (this.counts.graph.contains(this.mouseX, this.mouseY) || this.scores.graph
 						.contains(this.mouseX, this.mouseY))) {
 			this.mouseDown = 1;
@@ -1358,7 +1385,9 @@ Visualizer.prototype.mousePressed = function() {
  */
 Visualizer.prototype.mouseReleased = function() {
 	this.mouseDown = 0;
-	this.btnMgr.mouseUp();
+	if (this.state.options['decorated']) {
+		this.btnMgr.mouseUp();
+	}
 	this.mouseMoved(this.mouseX, this.mouseY);
 };
 
@@ -1368,8 +1397,10 @@ Visualizer.prototype.mouseReleased = function() {
  * @private
  */
 Visualizer.prototype.mouseExited = function() {
-	this.btnMgr.mouseMove(-1, -1);
-	this.btnMgr.mouseUp();
+	if (this.state.options['decorated']) {
+		this.btnMgr.mouseMove(-1, -1);
+		this.btnMgr.mouseUp();
+	}
 	this.mouseDown = 0;
 };
 
@@ -1408,15 +1439,20 @@ Visualizer.prototype.keyPressed = function(key) {
 			break;
 		case Key.PLUS:
 		case Key.PLUS_OPERA:
-			this.btnMgr.groups['toolbar'].getButton(6).onclick();
+		case Key.PLUS_JAVA:
+			this.modifySpeed(+1);
 			break;
 		case Key.MINUS:
-			this.btnMgr.groups['toolbar'].getButton(7).onclick();
+		case Key.MINUS_JAVA:
+			this.modifySpeed(-1);
 			break;
 		default:
 			switch (String.fromCharCode(key)) {
 				case 'F':
 					this.setFullscreen(!this.state.config['fullscreen']);
+					break;
+				case 'C':
+					this.centerMap();
 					break;
 				default:
 					return false;
@@ -1434,20 +1470,28 @@ Visualizer.prototype.keyPressed = function(key) {
  *        immediately. For boolean values 'true' or '1' are interpreted as true,
  *        everything else as false. Be aware that it is also possible to add a
  *        parameter named 'config' to the URL that will be handled specially by
- *        {@link Visualizer} to override {@link Config} settings.
+ *        {@link Visualizer} to override {@link Config} settings. Also note that
+ *        any additional options should have an initial value that makes it
+ *        clear wether the setting is a number, a boolean or a string, because
+ *        options are passed as strings to the Java applet and it will parse
+ *        these strings to the data type it finds in the Options object.
  * @constructor
  * @property {String} data_dir The directory that contains the 'img' directory
- *           as a relative or absolute path. This is usually set through the
- *           constructor of {@link Visualizer}.
+ *           as a relative or absolute path. You will get an error message if
+ *           you forget the tailing '/'.
  * @property {Boolean} interactive Set this to false to disable mouse and
- *           keyboard input and hide the buttons from view. This is usually set
- *           through the constructor of {@link Visualizer}.
+ *           keyboard input and hide the buttons from view.
+ * @property {Boolean} decorated Set this to false to hide buttons and
+ *           statistics. This results in a 'naked' visualizer suitable for small
+ *           embedded sample maps.
  * @property {Boolean} debug Set this to true, to enable loading of some kinds
  *           of partially corrupt replays and display an FPS counter in the
  *           title bar.
  * @property {Boolean} profile Set this to true, to enable rendering code
  *           profiling though 'console.profile()' in execution environments that
  *           support it.
+ * @property {Boolean} embedded Set this to true, to disable the fullscreen
+ *           option.
  * @property {String} game This is the game number that is used by the game link
  *           button for display and as to create the link URL.
  * @property {Number} col If row and col are both set, the visualizer will draw
@@ -1461,17 +1505,19 @@ Visualizer.prototype.keyPressed = function(key) {
  * @property {String} user If set, the replay will give this user id the first
  *           color in the list so it can easily be identified on the map.
  */
-function Options() {
-	this.data_dir = undefined;
-	this.interactive = true;
-	this.debug = false;
-	this.profile = false;
-	this.game = undefined;
-	this.col = undefined;
-	this.row = undefined;
-	this.turn = undefined;
-	this.user = undefined;
-}
+Options = function() {
+	this['data_dir'] = '';
+	this['interactive'] = true;
+	this['decorated'] = true;
+	this['debug'] = false;
+	this['profile'] = false;
+	this['embedded'] = false;
+	this['game'] = '';
+	this['col'] = NaN;
+	this['row'] = NaN;
+	this['turn'] = NaN;
+	this['user'] = '';
+};
 
 /**
  * Converts a string parameter in the URL to a boolean value.
@@ -1512,7 +1558,7 @@ Options.toBool = function(value) {
  */
 function State() {
 	this.cleanUp();
-	this.options = new Options();
+	this.options = null;
 	this.config = new Config();
 }
 

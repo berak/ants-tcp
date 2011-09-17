@@ -58,7 +58,7 @@ def main():
 		'food': 'symmetric',
 		
 		## non-ants related tcp opts
-		'trueskill': 'py',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
+		'trueskill': 'jskills',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
 		'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
 		'db_max_games': 1000,	# how many game_infos should be kept in memory
 		'multi_games': 'True',  # allow users to play multiple games at the same time
