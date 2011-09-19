@@ -56,6 +56,12 @@ def main():
 		'spawnradius2': 1,
 		'attack': 'focus',
 		'food': 'symmetric',
+		'food_rate': (1,8), # total food
+		'food_turn': (12,30), # per turn
+		'food_start': (75,175), # per land area
+		'food_visible': (2,4), # in starting loc
+		'cutoff_percent': 0.66,
+		'cutoff_turn': 150,
 		
 		## non-ants related tcp opts
 		'trueskill': 'jskills',		# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 

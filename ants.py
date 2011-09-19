@@ -42,7 +42,7 @@ class Ants(Game):
         self.engine_seed = options.get('engine_seed', randint(-maxint-1, maxint))
         self.player_seed = options.get('player_seed', randint(-maxint-1, maxint))
         seed(self.engine_seed)
-        self.food_rate = options.get('food_rate', (2,8)) # total food
+        self.food_rate = options.get('food_rate', (1,8)) # total food
         if type(self.food_rate) in (list, tuple):
             self.food_rate = randrange(*self.food_rate)
         self.food_turn = options.get('food_turn', (12,30)) # per turn
@@ -51,7 +51,7 @@ class Ants(Game):
         self.food_start = options.get('food_start', (75,175)) # per land area
         if type(self.food_start) in (list, tuple):
             self.food_start = randrange(*self.food_start)
-        self.food_visible = options.get('food_visible', (1,3)) # in starting loc
+        self.food_visible = options.get('food_visible', (2,4)) # in starting loc
         if type(self.food_visible) in (list, tuple):
             self.food_visible = randrange(*self.food_visible)
         self.food_extra = Fraction(0,1)
