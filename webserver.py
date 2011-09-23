@@ -282,6 +282,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 if i == 100:  break
                 i += 1
             self.server.game_data_lock.release()
+        else:
+            log.error("LOCKING game data for stats")
             
         txt += " %d" % ct["survived"] 
         txt += " %d" % ct["eliminated"] 
