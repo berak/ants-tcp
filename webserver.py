@@ -117,8 +117,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     
     ## this suppresses logging from SimpleHTTPRequestHandler
     ## comment this method if you want to see them
-    def log_message(self,format,*args):
-        pass
+    ##def log_message(self,format,*args):
+    ##    pass
     
                 
     def send_head(self, type='text/html'):
@@ -539,7 +539,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def do_GET(self):
-
+    
+        if self.path.find("..") > 0:
+            self.send_error(404, 'No cheating, please!: %s' % self.path)
+            return
+            
         if self.path == '/':
             self.serve_main(None)
             return
