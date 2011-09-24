@@ -1,15 +1,19 @@
 
 a complete rewrite of the ants-tcp server (2.7 < python < 3).
 
-this time it's using hacked engine.py that takes a list of tcp-sandboxes,
-	needs multithreading now, but has much better and faster gameplay that way.
-	.. take it with a grain of salt ..
 
-start it by (editing and) running main.py
+both servers got totally separated now, data is shared via sqlite.
 
 
-the default trueskill impl is trueskill.py, 
-if you also got java installed, you'll want to use jskills.
+tcpserver.py:
+	please look at the options & edit at the bottom in main.
+	default port is 2081.
+	the default trueskill impl is trueskill.py, 
+	if you also got java installed, you'll want to use jskills.
+		
+webserver.py:
+	default port is 2080.
+	please look at the options & edit at the bottom in main.
 
 
 i'm shure, this contains bugs...

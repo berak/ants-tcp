@@ -7,8 +7,10 @@ import json
 import random
 import time
 import SimpleHTTPServer
+import tcpserver
+import socket
 
-from tcpserver import book
+import game_db
 
 # create console handler and set level to debug
 ch = logging.StreamHandler()
@@ -104,7 +106,6 @@ table_lines = 100
 
 class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
-        self.db = None
         self.opts = None
         self.maps = None
         self.cache = {}
@@ -141,7 +142,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         head += """</head><body><b> &nbsp;&nbsp;&nbsp;
         <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/settings'> Settings </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/clients/tcpclient.py' title='get the python client'> Client.py </a>
         <br><p></b>
@@ -212,12 +212,12 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def game_line(self, g):
-        html = "<tr><td width=10%><a href='/replay." + str(g.id) + "' title='Run in Visualizer'> Replay " + str(g.id) + "</a></td><td>"
-        for key, value in sorted(g.players.iteritems(), key=lambda (k,v): (v,k), reverse=True):
+        html = "<tr><td width=10%><a href='/replay." + str(g[0]) + "' title='Run in Visualizer'> Replay " + str(g[0]) + "</a></td><td>"
+        for key, value in sorted(json.loads(g[1]).iteritems(), key=lambda (k,v): (v,k), reverse=True):
             html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"
-        html += "</td><td>" + str(g.turns) + "</td>"
-        html += "</td><td>" + str(g.date) + "</td>"
-        html += "<td><a href='/map/" + str(g.map) + "' title='View the map'>" + str(g.map) + "</a></td>"
+        html += "</td><td>" + str(g[4]) + "</td>"
+        html += "</td><td>" + str(g[2]) + "</td>"
+        html += "<td><a href='/map/" + str(g[3]) + "' title='View the map'>" + str(g[3]) + "</a></td>"
         html += "</tr>\n"
         return html
         
@@ -235,23 +235,23 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return html
         
     def rank_line( self, p ):
-        html  = "<tr><td><a href='/player/" + str(p.name) + "'>"+str(p.name)+"</a></td>" 
-        html += "<td>%d</td>"    % p.rank
-        html += "<td>%2.4f</td>" % p.skill
-        html += "<td>%2.4f</td>" % p.mu
-        html += "<td>%2.4f</td>" % p.sigma
-        html += "<td>%d</td>"    % p.ngames
-        html += "<td>%s</td>"    % p.lastseen
+        html  = "<tr><td><a href='/player/" + str(p[1]) + "'>"+str(p[1])+"</a></td>" 
+        html += "<td>%d</td>"    % p[4]
+        html += "<td>%2.4f</td>" % p[5]
+        html += "<td>%2.4f</td>" % p[6]
+        html += "<td>%2.4f</td>" % p[7]
+        html += "<td>%d</td>"    % p[8]
+        html += "<td>%s</td>"    % p[3]
         html += "</tr>\n"
         return html
         
     def serve_maps(self, match):
         html = self.header( "%d maps" % len(self.server.maps) )
         html += "<table id='maps' class='tablesorter' width='70%'>"
-        html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th><th>Games</th></tr></thead>"
+        html += "<thead><tr><th>Mapname</th><th>Players</th><th>Rows</th><th>Cols</th></tr></thead>"
         html += "<tbody>"
         for k,v in self.server.maps.iteritems():
-            html += "<tr><td><a href='/map/"+str(k)+"'>"+str(k)+"</a></td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td><td>"+str(v[3])+"</td></tr>\n"
+            html += "<tr><td><a href='/map/"+str(k)+"'>"+str(k)+"</a></td><td>"+str(v[0])+"</td><td>"+str(v[1])+"</td><td>"+str(v[2])+"</td></tr>\n"
         html += "</tbody>"
         html += "</table>"
         html += self.footer()
@@ -260,118 +260,107 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
 
 
-    ## nplayers ngames survived_per100 eliminated_per100 timeout_per100 crashed_per100 draw_per100
-    def serve_stats(self,match):
-        self.send_head("text/plain")
-        i=0
-        txt = "%d %d" % (len(book.players),len(book.games))
-        ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0,"draw":0}
-        if self.server.game_data_lock.acquire():
-            srt = sorted(self.server.db.games.iteritems(), reverse=True)
-            for ng,g in srt:
-                for np,p in g.players.iteritems():
-                    if i == 100:  break
-                    ct[ p[1] ] += 1
-                    i += 1
-                if i == table_lines:  break
-            i=0
-            for ng,g in srt:
-                try:
-                    ct["draw"] += g.draws
-                except:pass
-                if i == 100:  break
-                i += 1
-            self.server.game_data_lock.release()
-        else:
-            log.error("LOCKING game data for stats")
+    #~ ## nplayers ngames survived_per100 eliminated_per100 timeout_per100 crashed_per100 draw_per100
+    #~ def serve_stats(self,match):
+        #~ self.send_head("text/plain")
+        #~ i=0
+        #~ txt = "%d %d" % (len(book.players),len(book.games))
+        #~ ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0,"draw":0}
+        #~ if self.server.game_data_lock.acquire():
+            #~ srt = sorted(self.server.db.games.iteritems(), reverse=True)
+            #~ for ng,g in srt:
+                #~ for np,p in g.players.iteritems():
+                    #~ if i == 100:  break
+                    #~ ct[ p[1] ] += 1
+                    #~ i += 1
+                #~ if i == table_lines:  break
+            #~ i=0
+            #~ for ng,g in srt:
+                #~ try:
+                    #~ ct["draw"] += g.draws
+                #~ except:pass
+                #~ if i == 100:  break
+                #~ i += 1
+            #~ self.server.game_data_lock.release()
+        #~ else:
+            #~ log.error("LOCKING game data for stats")
             
-        txt += " %d" % ct["survived"] 
-        txt += " %d" % ct["eliminated"] 
-        txt += " %d" % ct["timeout"] 
-        txt += " %d" % ct["crashed"] 
-        txt += " %d" % ct["draw"] 
-        #~ txt += " ".join([p for p in book.players])
-        self.wfile.write(txt)
+        #~ txt += " %d" % ct["survived"] 
+        #~ txt += " %d" % ct["eliminated"] 
+        #~ txt += " %d" % ct["timeout"] 
+        #~ txt += " %d" % ct["crashed"] 
+        #~ txt += " %d" % ct["draw"] 
+        #~ self.wfile.write(txt)
         
-    def serve_online(self,match):
-        html = self.header( "online" )
-        html += "&nbsp;&nbsp;&nbsp;%d players<ul>" % len(book.players)
-        for p in book.players:
-            html += "<li>%s</li>\n" % p
-        html += "</ul><br>"
-        html += "&nbsp;&nbsp;&nbsp;%d games<ul>" % len(book.games)
-        for g in book.games:
-            html += "<li>%s</li>\n" % g
-        html += "</ul>"
-        html += self.footer()
-        html += "</body></html>"
-        self.wfile.write(html)
+    #~ def serve_online(self,match):
+        #~ html = self.header( "online" )
+        #~ html += "&nbsp;&nbsp;&nbsp;%d players<ul>" % len(book.players)
+        #~ for p in book.players:
+            #~ html += "<li>%s</li>\n" % p
+        #~ html += "</ul><br>"
+        #~ html += "&nbsp;&nbsp;&nbsp;%d games<ul>" % len(book.games)
+        #~ for g in book.games:
+            #~ html += "<li>%s</li>\n" % g
+        #~ html += "</ul>"
+        #~ html += self.footer()
+        #~ html += "</body></html>"
+        #~ self.wfile.write(html)
         
-    def serve_charts(self,match):
-        html = self.header( "charts" )
-        html += """
-            <div bgcolor='#aaa'>
-            <br> &nbsp; &nbsp; &nbsp; 
-            <font size=1 color='#0f0'>Games</font>
-            <font size=1 color='#f00'>Players</font>
-            <br> &nbsp; &nbsp; &nbsp; 
-            <canvas id="chart" width="800" height="100"></canvas>            
-            <br><br><br> &nbsp; &nbsp; &nbsp; 
-            <font size=1 color='#0f0'>Survived</font>
-            <font size=1 color='#f00'>Eliminated</font>
-            <font size=1 color='#00f'>Timeout</font>
-            <font size=1 color='#0ff'>Crashed</font>
-            &nbsp;&nbsp;<font size=1 color='#f0f'>Draw</font>
-            <br> &nbsp; &nbsp; &nbsp; 
-            <canvas id="gstat" width="800" height="100"></canvas>            
-            <script type="text/javascript" src="/js/smoothie.js"></script>
-            <script type="text/javascript" src="/js/statistics.js"></script>
-            <script> loadTabs(); </script>
-            </div>
-            """
-        html += self.footer()
-        html += "</body></html>"
-        self.wfile.write(html)
+    #~ def serve_charts(self,match):
+        #~ html = self.header( "charts" )
+        #~ html += """
+            #~ <div bgcolor='#aaa'>
+            #~ <br> &nbsp; &nbsp; &nbsp; 
+            #~ <font size=1 color='#0f0'>Games</font>
+            #~ <font size=1 color='#f00'>Players</font>
+            #~ <br> &nbsp; &nbsp; &nbsp; 
+            #~ <canvas id="chart" width="800" height="100"></canvas>            
+            #~ <br><br><br> &nbsp; &nbsp; &nbsp; 
+            #~ <font size=1 color='#0f0'>Survived</font>
+            #~ <font size=1 color='#f00'>Eliminated</font>
+            #~ <font size=1 color='#00f'>Timeout</font>
+            #~ <font size=1 color='#0ff'>Crashed</font>
+            #~ &nbsp;&nbsp;<font size=1 color='#f0f'>Draw</font>
+            #~ <br> &nbsp; &nbsp; &nbsp; 
+            #~ <canvas id="gstat" width="800" height="100"></canvas>            
+            #~ <script type="text/javascript" src="/js/smoothie.js"></script>
+            #~ <script type="text/javascript" src="/js/statistics.js"></script>
+            #~ <script> loadTabs(); </script>
+            #~ </div>
+            #~ """
+        #~ html += self.footer()
+        #~ html += "</body></html>"
+        #~ self.wfile.write(html)
 
 
-    ## set opts via remote admin url
-    def serve_radmin(self, match):
-        if self.server.radmin_page:
-            u,q = match.group(0).split('?')
-            k,v = q.split('=')
-            try:
-                if k in self.server.opts:
-                    self.server.opts[k] = v
-            except Exception,e:
-                print e
-        self.serve_settings(match)
+    #~ ## set opts via remote admin url
+    #~ def serve_radmin(self, match):
+        #~ if self.server.radmin_page:
+            #~ u,q = match.group(0).split('?')
+            #~ k,v = q.split('=')
+            #~ try:
+                #~ if k in self.server.opts:
+                    #~ self.server.opts[k] = v
+            #~ except Exception,e:
+                #~ print e
+        #~ self.serve_settings(match)
 
 
     def serve_main(self, match):
-        html = self.header("There are %d games and %d players active on %s" % (len(book.games),len(book.players), self.server.opts['host']) )
+        html = self.header(self.server.opts['host'])
         html += self.game_head()
         html += "<tbody>"
         offset=0
         if match and (len(match.group(0))>2):
             offset=table_lines * int(match.group(0)[2:])
             
-        if self.server.game_data_lock.acquire():
-            i = 0
-            count=0
-            for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
-                i += 1
-                if i <= offset: continue
-                html += self.game_line(g)            
-                count += 1
-                if count> table_lines: break
-            html += "</tbody></table>"
-            html += self.page_counter("/", len(self.server.db.games) )
-            html += self.footer()
-            html += self.footer_sort('games')
-            html += "</body></html>"
-            self.server.game_data_lock.release()
-        else:
-            log.error("LOCKING game data for main")
+        for g in self.server.db.get_games(offset,table_lines):
+            html += self.game_line(g)            
+        html += "</tbody></table>"
+        html += self.page_counter("/", self.server.db.num_games() )
+        html += self.footer()
+        html += self.footer_sort('games')
+        html += "</body></html>"
         self.wfile.write(html)
         
         
@@ -380,50 +369,39 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"
-        if self.server.game_data_lock.acquire():
-            html += self.rank_line( self.server.db.players[player] )
-            html += "</tbody></table>"
-            html += self.game_head()
-            html += "<tbody>"
-            i = 0
-            count=0
-            offset = 0
-            if match:
-                toks = match.group(0).split("/")
-                if len(toks)>3:
-                    offset=table_lines * int(toks[3][1:])
-            for k,g in sorted(self.server.db.games.iteritems(), reverse=True):
-                if player in g.players:
-                    i += 1
-                    if i <= offset: continue
-                    count += 1
-                    if count > table_lines: continue
-                    html += self.game_line(g)                
-            self.server.game_data_lock.release()
-        else:
-            log.error("LOCKING game data for player")
+        html += self.rank_line( self.server.db.get_player((player,))[0] )
         html += "</tbody></table>"
-        html += self.page_counter("/player/"+player+"/", i )
+        html += self.game_head()
+        html += "<tbody>"
+        offset = 0
+        if match:
+            toks = match.group(0).split("/")
+            if len(toks)>3:
+                offset=table_lines * int(toks[3][1:])
+        for g in self.server.db.get_games_for_player(offset, table_lines, player):
+            html += self.game_line(g)                
+        html += "</tbody></table>"
+        html += self.page_counter("/player/"+player+"/", self.server.db.num_games_for_player(player) )
         html += self.footer()
         html += self.footer_sort('games')
         html += "</body></html>"
         self.wfile.write(html)
 
         
-    def serve_settings(self, match):
-        html = self.header("Settings")
-        html += "<table id='sets' class='tablesorter' width='70%'>"
-        html += "<thead><tr><th>Name</th><th>Value</th></tr></thead>"
-        html += "<tbody>"
-        for k,v in self.server.opts.iteritems():
-            if k=='map': continue
-            html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
-        html += "</tbody>"
-        html += "</table>"
-        html += self.footer()
-        html += self.footer_sort('sets')
-        html += "</body></html>"
-        self.wfile.write(html)
+    #~ def serve_settings(self, match):
+        #~ html = self.header("Settings")
+        #~ html += "<table id='sets' class='tablesorter' width='70%'>"
+        #~ html += "<thead><tr><th>Name</th><th>Value</th></tr></thead>"
+        #~ html += "<tbody>"
+        #~ for k,v in self.server.opts.iteritems():
+            #~ if k=='map': continue
+            #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
+        #~ html += "</tbody>"
+        #~ html += "</table>"
+        #~ html += self.footer()
+        #~ html += self.footer_sort('sets')
+        #~ html += "</body></html>"
+        #~ self.wfile.write(html)
         
         
     def serve_ranking(self, match):
@@ -435,26 +413,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             toks = match.group(0).split("/")
             if len(toks)>2:
                 offset=table_lines * int(toks[2][1:])
-        if self.server.game_data_lock.acquire():
-            pz = self.server.db.players.items()
-            self.server.game_data_lock.release()
-        else:
-            log.error("LOCKING game data for main")
-        
-        def by_skill( a,b ):
-            return cmp(b[1].skill, a[1].skill)            
-        pz.sort(by_skill)        
-        i = 0
-        count=0
-        for n,p in pz:
-            i += 1
-            if i <= offset: continue
+        for p in self.server.db.retrieve("select * from players order by skill desc limit ? offset ?",(table_lines,offset)):
             html += self.rank_line( p )            
-            count += 1
-            if count> table_lines: break
             
         html += "</tbody></table>"
-        html += self.page_counter("/ranking/", len(self.server.db.players) )
+        html += self.page_counter("/ranking/", self.server.db.num_players() )
         html += self.footer()
         html += self.footer_sort('players')
         html += "</body></html>"
@@ -549,11 +512,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
             
         for regex, func in (
-                ('^\/%s(.*)' % self.server.radmin_page, self.serve_radmin),
-                ('^\/online', self.serve_online),
-                ('^\/charts', self.serve_charts),
-                ('^\/stats', self.serve_stats),
-                ('^\/settings', self.serve_settings),
+                #~ ('^\/%s(.*)' % self.server.radmin_page, self.serve_radmin),
+                #~ ('^\/online', self.serve_online),
+                #~ ('^\/charts', self.serve_charts),
+                #~ ('^\/stats', self.serve_stats),
+                #~ ('^\/settings', self.serve_settings),
                 ('^\/ranking/p([0-9]?)', self.serve_ranking),
                 ('^\/ranking', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
@@ -573,3 +536,34 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
  
+
+
+
+
+
+
+
+def main():
+
+    web_port = 2080
+    opts = {
+        ## web opts:
+        'style': 'light',		# or 'dark'
+        'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
+
+        ## read only info
+        'host': socket.gethostname(),
+    }
+
+
+    maps = tcpserver.load_map_info()
+    web = AntsHttpServer(('', web_port), AntsHttpHandler)
+    web.opts = opts
+    web.maps = maps
+    web.db = game_db.GameDB()
+    web.serve_forever()
+
+if __name__ == "__main__":
+    main()
+
+
