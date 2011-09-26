@@ -325,7 +325,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html = self.header(mapname)
         html += "&nbsp;&nbsp;&nbsp;<canvas width="+str(s*w)+" height="+str(s*h)+" id='C'><p>\n<script>\n"+jsmap+"var square = " + str(s) + "\n"
         html +=""" 
-            var colors = { '%':'#1e3f5d', '.':'#553322', 'a':'#4ca9c8', 'b':'#6a9a2a', 'c':'#8a2b44', 'd':'#ff5d00', 'e':'#4ca9c8', 'f':'#6a9a2a', 'g':'#8a2b44', 'h':'#ff5d00' }            
+            var colors = { '%':'#1e3f5d', '.':'#553322', 'a':'#4ca9c8', 'b':'#6a9a2a', 'c':'#8a2b44', 'd':'#ff5d00', 'e':'#4ca9c8', 'f':'#6a9a2a', 'g':'#8a2b44', 'h':'#ff5d00', '0':'#4ca9c8', '1':'#6a9a2a', '2':'#8a2b44', '3':'#ff5d00', '4':'#4ca9c8', '5':'#6a9a2a', '6':'#8a2b44', '7':'#ff5d00' }            
             var C = document.getElementById('C')
             var V = C.getContext('2d');
             for (var r=0; r<jsmap.length; r++) {
@@ -345,6 +345,10 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
     ## static files will get cached in a dict
     def serve_file(self, match):
+        if match.group(0).find("sqlite") > -1: # leave the db alone
+            self.send_error(401, 'no.')
+            
+            self.server.cache[fname] = output
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:
             junk,end = match.group(0).split('.')

@@ -219,9 +219,10 @@ class TcpGame(threading.Thread):
         for r in ranks:
             hist[r] += 1
         for h in hist:
-            if h:  draws += (h-1)
+            if h:  draws += h
             
         # save replay, add playernames to it
+        game_result['game_id'] = self.id
         game_result['playernames'] = []
         for i,p in enumerate(self.players):
             game_result['playernames'].append(p)
@@ -435,6 +436,8 @@ class TCPGameServer(object):
                 break
             except socket.error, e:
                 log.exception(e)
+                break
+            except KeyboardInterrupt, e:
                 break
 
             for s in inputready:
