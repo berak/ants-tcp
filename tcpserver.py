@@ -44,7 +44,7 @@ BUFSIZ = 4096
 
 
 
-## ugly global, but the last thing you'll want here are circular refs! 
+## ugly global 
 class Bookkeeper:
     players=set()
     games=set()
@@ -204,7 +204,6 @@ class TcpGame(threading.Thread):
         # finally, THE GAME !
         game_result = run_game(self.ants, self.bots, self.opts)
         
-        #~ log.info("saving game : " + str(self.id) + " turn " + str(self.ants.turn) )
         try:
             states = game_result["status"]
         except: # keyerror
@@ -231,6 +230,7 @@ class TcpGame(threading.Thread):
         json.dump(game_result,f)
         f.close()
         
+        # save to db
         self.db = game_db.GameDB()
         plr = {}
         for i,p in enumerate(self.players):
@@ -247,7 +247,7 @@ class TcpGame(threading.Thread):
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
-        #~ # update rankings
+        # update rankings
         for i, p in enumerate(self.db.retrieve("select name from players order by skill desc",())):
             self.db.update_player_rank( p[0], i+1 )
 
@@ -380,7 +380,7 @@ class TCPGameServer(object):
         if max_players < 2:
             max_players = 2
         base_name = random.choice( self.maps.keys() )
-        #~ while( self.maps[base_name][0] < 4 ):
+
         while( self.maps[base_name][0] > max_players ):
             base_name = random.choice( self.maps.keys() )
         self.maps[base_name][3] += 1

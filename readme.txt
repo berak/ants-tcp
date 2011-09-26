@@ -8,8 +8,8 @@ both servers got totally separated now, data is shared via sqlite.
 tcpserver.py:
 	please look at the options & edit at the bottom in main.
 	default port is 2081.
-	the default trueskill impl is trueskill.py, 
-	if you also got java installed, you'll want to use jskills.
+	the default trueskill impl is jskills, this assumes java installed, and linux (you have to change the cp_separator on win)
+	no java ? select 'py' for trueskill instead
 		
 webserver.py:
 	default port is 2080.

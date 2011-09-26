@@ -26,81 +26,55 @@ log.setLevel(logging.DEBUG)
 # add ch to logger
 log.addHandler(ch)
 
-style = {'light':"""
-a{
-	text-decoration: none;
-	color:#666;
-}
-a:hover{
-	color:#aaa;
-}
-body {
-	font-family:Calibri,Helvetica,Arial;
-	font-size:9pt;
-	color:#111;
-}
-hr {
-    color:#111;
-    background-color:#555;    
-}
-table.tablesorter {
-	background-color: #CDCDCD;
-	font-family: Calibri,Helvetica,Arial;
-	font-size: 8pt;
-	margin: 10px 10px 15px 10px;
-	text-align:left;
-}
-table.tablesorter thead tr th tfoot  {
-	background-color:#E6EEEE;
-	border:1px solid #FFFFFF;
-	font-size:8pt;
-	padding:4px 40px 4px 4px;
-	background-position:right center;
-	background-repeat:no-repeat;
-	cursor:pointer;
-}
-table.tablesorter tbody td {
-	background-color:#FFFFFF;
-	color:#3D3D3D;
-	padding:4px;
-	vertical-align:top;
-}
-table.tablesorter tbody tr.odd td {
-    background-color:#F0F0F6;
-}
-table.tablesorter thead tr .headerSortUp {
-    background-color:#AAB;
-}
-table.tablesorter thead tr .headerSortDown {
-    background-color:#BBC;
-}
-""",
-'dark':"""
-body,iframe,textarea,input,button,file,.but{
-	font-family: Arial, "MS Trebuchet", sans-serif;
-	background-color: #292929; 
-	color:#aaa;
-	border-color:#404040;
-}
-a{
-	text-decoration: none;
-    color:#bbb;
-}
-a:hover{
-	color:#ddd;
-}
-
-table.tablesorter thead th tr tfoot {
-    text-align: left;
-    background-color:#666666;
-}
-table.tablesorter tbody td tfoot {
-    text-align: left;
-    border: 1;
-    font-size: 9;
-}
+style = """
+    a{
+        text-decoration: none;
+        color:#666;
+    }
+    a:hover{
+        color:#aaa;
+    }
+    body {
+        font-family:Calibri,Helvetica,Arial;
+        font-size:9pt;
+        color:#111;
+    }
+    hr {
+        color:#111;
+        background-color:#555;    
+    }
+    table.tablesorter {
+        background-color: #CDCDCD;
+        font-family: Calibri,Helvetica,Arial;
+        font-size: 8pt;
+        margin: 10px 10px 15px 10px;
+        text-align:left;
+    }
+    table.tablesorter thead tr th tfoot  {
+        background-color:#E6EEEE;
+        border:1px solid #FFFFFF;
+        font-size:8pt;
+        padding:4px 40px 4px 4px;
+        background-position:right center;
+        background-repeat:no-repeat;
+        cursor:pointer;
+    }
+    table.tablesorter tbody td {
+        background-color:#FFFFFF;
+        color:#3D3D3D;
+        padding:4px;
+        vertical-align:top;
+    }
+    table.tablesorter tbody tr.odd td {
+        background-color:#F0F0F6;
+    }
+    table.tablesorter thead tr .headerSortUp {
+        background-color:#AAB;
+    }
+    table.tablesorter thead tr .headerSortDown {
+        background-color:#BBC;
+    }
 """
-}
 
 table_lines = 100
 
@@ -133,7 +107,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         head = """<html><head>
         <link rel="icon" href='/favicon.ico'>
         <title>"""  + title + """</title>
-        <style>"""  + style[self.server.opts['style']] + """</style>"""
+        <style>"""  + style + """</style>"""
         if str(self.server.opts['sort'])=='True':
             head += """
                 <script type="text/javascript" src="/js/jquery-1.2.6.min.js"></script> 
@@ -159,8 +133,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return ""
     
     def footer(self):
-        #~ anum = int(1 + random.random() * 11)
-        #~ apic = "<img src='/ants_pics/a"+str(anum)+".png' border=0>"
         apic="^^^"
         return "<p><br> &nbsp;<a href=#top title='crawl back to the top'> " + apic + "</a>"
     
@@ -260,92 +232,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
 
 
-    #~ ## nplayers ngames survived_per100 eliminated_per100 timeout_per100 crashed_per100 draw_per100
-    #~ def serve_stats(self,match):
-        #~ self.send_head("text/plain")
-        #~ i=0
-        #~ txt = "%d %d" % (len(book.players),len(book.games))
-        #~ ct={"survived":0,"eliminated":0,"timeout":0,"crashed":0,"draw":0}
-        #~ if self.server.game_data_lock.acquire():
-            #~ srt = sorted(self.server.db.games.iteritems(), reverse=True)
-            #~ for ng,g in srt:
-                #~ for np,p in g.players.iteritems():
-                    #~ if i == 100:  break
-                    #~ ct[ p[1] ] += 1
-                    #~ i += 1
-                #~ if i == table_lines:  break
-            #~ i=0
-            #~ for ng,g in srt:
-                #~ try:
-                    #~ ct["draw"] += g.draws
-                #~ except:pass
-                #~ if i == 100:  break
-                #~ i += 1
-            #~ self.server.game_data_lock.release()
-        #~ else:
-            #~ log.error("LOCKING game data for stats")
-            
-        #~ txt += " %d" % ct["survived"] 
-        #~ txt += " %d" % ct["eliminated"] 
-        #~ txt += " %d" % ct["timeout"] 
-        #~ txt += " %d" % ct["crashed"] 
-        #~ txt += " %d" % ct["draw"] 
-        #~ self.wfile.write(txt)
-        
-    #~ def serve_online(self,match):
-        #~ html = self.header( "online" )
-        #~ html += "&nbsp;&nbsp;&nbsp;%d players<ul>" % len(book.players)
-        #~ for p in book.players:
-            #~ html += "<li>%s</li>\n" % p
-        #~ html += "</ul><br>"
-        #~ html += "&nbsp;&nbsp;&nbsp;%d games<ul>" % len(book.games)
-        #~ for g in book.games:
-            #~ html += "<li>%s</li>\n" % g
-        #~ html += "</ul>"
-        #~ html += self.footer()
-        #~ html += "</body></html>"
-        #~ self.wfile.write(html)
-        
-    #~ def serve_charts(self,match):
-        #~ html = self.header( "charts" )
-        #~ html += """
-            #~ <div bgcolor='#aaa'>
-            #~ <br> &nbsp; &nbsp; &nbsp; 
-            #~ <font size=1 color='#0f0'>Games</font>
-            #~ <font size=1 color='#f00'>Players</font>
-            #~ <br> &nbsp; &nbsp; &nbsp; 
-            #~ <canvas id="chart" width="800" height="100"></canvas>            
-            #~ <br><br><br> &nbsp; &nbsp; &nbsp; 
-            #~ <font size=1 color='#0f0'>Survived</font>
-            #~ <font size=1 color='#f00'>Eliminated</font>
-            #~ <font size=1 color='#00f'>Timeout</font>
-            #~ <font size=1 color='#0ff'>Crashed</font>
-            #~ &nbsp;&nbsp;<font size=1 color='#f0f'>Draw</font>
-            #~ <br> &nbsp; &nbsp; &nbsp; 
-            #~ <canvas id="gstat" width="800" height="100"></canvas>            
-            #~ <script type="text/javascript" src="/js/smoothie.js"></script>
-            #~ <script type="text/javascript" src="/js/statistics.js"></script>
-            #~ <script> loadTabs(); </script>
-            #~ </div>
-            #~ """
-        #~ html += self.footer()
-        #~ html += "</body></html>"
-        #~ self.wfile.write(html)
-
-
-    #~ ## set opts via remote admin url
-    #~ def serve_radmin(self, match):
-        #~ if self.server.radmin_page:
-            #~ u,q = match.group(0).split('?')
-            #~ k,v = q.split('=')
-            #~ try:
-                #~ if k in self.server.opts:
-                    #~ self.server.opts[k] = v
-            #~ except Exception,e:
-                #~ print e
-        #~ self.serve_settings(match)
-
-
     def serve_main(self, match):
         html = self.header(self.server.opts['host'])
         html += self.game_head()
@@ -387,21 +273,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</body></html>"
         self.wfile.write(html)
 
-        
-    #~ def serve_settings(self, match):
-        #~ html = self.header("Settings")
-        #~ html += "<table id='sets' class='tablesorter' width='70%'>"
-        #~ html += "<thead><tr><th>Name</th><th>Value</th></tr></thead>"
-        #~ html += "<tbody>"
-        #~ for k,v in self.server.opts.iteritems():
-            #~ if k=='map': continue
-            #~ html += "<tr><td>%s</td><td>%s</td></tr>\n" % (k,v)
-        #~ html += "</tbody>"
-        #~ html += "</table>"
-        #~ html += self.footer()
-        #~ html += self.footer_sort('sets')
-        #~ html += "</body></html>"
-        #~ self.wfile.write(html)
         
         
     def serve_ranking(self, match):
@@ -512,11 +383,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
             
         for regex, func in (
-                #~ ('^\/%s(.*)' % self.server.radmin_page, self.serve_radmin),
-                #~ ('^\/online', self.serve_online),
-                #~ ('^\/charts', self.serve_charts),
-                #~ ('^\/stats', self.serve_stats),
-                #~ ('^\/settings', self.serve_settings),
                 ('^\/ranking/p([0-9]?)', self.serve_ranking),
                 ('^\/ranking', self.serve_ranking),
                 ('^\/maps', self.serve_maps),
@@ -536,19 +402,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
  
-
-
-
-
-
-
-
 def main():
 
     web_port = 2080
     opts = {
         ## web opts:
-        'style': 'light',		# or 'dark'
         'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
 
         ## read only info
@@ -556,10 +414,9 @@ def main():
     }
 
 
-    maps = tcpserver.load_map_info()
     web = AntsHttpServer(('', web_port), AntsHttpHandler)
     web.opts = opts
-    web.maps = maps
+    web.maps = tcpserver.load_map_info()
     web.db = game_db.GameDB()
     web.serve_forever()
 

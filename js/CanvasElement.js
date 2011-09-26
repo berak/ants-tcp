@@ -1,13 +1,12 @@
 /**
- * @fileOverview This file contains the stack of off-screen images that are
- *               rendered on top and into each other to create the final
- *               display.
+ * @fileOverview This file contains the stack of off-screen images that are rendered on top and into
+ *               each other to create the final display.
  * @author <a href="mailto:marco.leise@gmx.de">Marco Leise</a>
  */
 
 /**
- * @class A canvas that serves as an off-screen buffer for some graphics to be
- *        displayed possibly in tandem with other canvas elements or graphics.
+ * @class A canvas that serves as an off-screen buffer for some graphics to be displayed possibly in
+ *        tandem with other canvas elements or graphics.
  * @constructor
  */
 function CanvasElement() {
@@ -24,8 +23,7 @@ function CanvasElement() {
 }
 
 /**
- * Sets the size of this canvas and invalidates it, if an actual change is
- * detected.
+ * Sets the size of this canvas and invalidates it, if an actual change is detected.
  * 
  * @param {Number}
  *        width the new width
@@ -46,24 +44,21 @@ CanvasElement.prototype.setSize = function(width, height) {
 };
 
 /**
- * Checks if a coordinate pair is within the canvas area. The canvas' x and y
- * properties are used as it's offset.
+ * Checks if a coordinate pair is within the canvas area. The canvas' x and y properties are used as
+ * it's offset.
  * 
  * @param {Number}
  *        x the x coordinate in question
  * @param {Number}
  *        y the y coordinate in question
- * @returns {Boolean} true, if the coordinates are contained within the canvas
- *          area
+ * @returns {Boolean} true, if the coordinates are contained within the canvas area
  */
 CanvasElement.prototype.contains = function(x, y) {
-	return (x >= this.x && x < this.x + this.w && y >= this.y && y < this.y
-			+ this.h);
+	return (x >= this.x && x < this.x + this.w && y >= this.y && y < this.y + this.h);
 };
 
 /**
- * Ensures that the contents of the canvas are up to date. A redraw is triggered
- * if necessary.
+ * Ensures that the contents of the canvas are up to date. A redraw is triggered if necessary.
  * 
  * @returns {Boolean} true, if the canvas had to be redrawn
  */
@@ -83,21 +78,20 @@ CanvasElement.prototype.validate = function() {
 };
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
 CanvasElement.prototype.checkState = function() {
-	// default implementation doesn't invalidate
+// default implementation doesn't invalidate
 };
 
 /**
- * Makes another canvas a dependency of this one. This will cause this canvas to
- * be invalidated if the dependency becomes invalid and will cause this canvas
- * to validate the dependency before attempting to validate itself. Do not
- * create cyclic dependencies!
+ * Makes another canvas a dependency of this one. This will cause this canvas to be invalidated if
+ * the dependency becomes invalid and will cause this canvas to validate the dependency before
+ * attempting to validate itself. Do not create cyclic dependencies!
  * 
  * @param {CanvasElement}
  *        element the dependency
@@ -108,11 +102,10 @@ CanvasElement.prototype.dependsOn = function(element) {
 };
 
 /**
- * For cases where a drawn object would cross the border of the canvas and it is
- * desirable to have it wrap around and come in again on the other side, this
- * method can be called with a given function that contains the drawing
- * commands. The wrapping will be simulated by repeatedly calling the function
- * and using matrix translations on the drawing context in between.
+ * For cases where a drawn object would cross the border of the canvas and it is desirable to have
+ * it wrap around and come in again on the other side, this method can be called with a given
+ * function that contains the drawing commands. The wrapping will be simulated by repeatedly calling
+ * the function and using matrix translations on the drawing context in between.
  * 
  * @param {Number}
  *        x the left coordinate
@@ -131,8 +124,7 @@ CanvasElement.prototype.dependsOn = function(element) {
  * @param {Array}
  *        args parameters for the drawing routine
  */
-CanvasElement.prototype.drawWrapped = function(x, y, w, h, wField, hField,
-		func, args) {
+CanvasElement.prototype.drawWrapped = function(x, y, w, h, wField, hField, func, args) {
 	var delta_x, delta_y, tx, ty, sum;
 	if (x < 0 || y < 0 || x + w > wField || y + h > hField) {
 		this.ctx.save();
@@ -169,8 +161,7 @@ function CanvasElementAbstractMap(state) {
 CanvasElementAbstractMap.extend(CanvasElement);
 
 /**
- * Draws a red marker on the map. Used when coordinates are given in the replay
- * URL.
+ * Draws a red marker on the map. Used when coordinates are given in the replay URL.
  * 
  * @param {Number}
  *        xs the x pixel position
@@ -207,21 +198,22 @@ CanvasElementAbstractMap.prototype.draw = function() {
 			if (start === undefined && isWall) {
 				start = col;
 			} else if (start !== undefined && !isWall) {
-				this.ctx.fillRect(this.scale * start, this.scale * row,
-						this.scale * (col - start), this.scale);
+				this.ctx.fillRect(this.scale * start, this.scale * row, this.scale * (col - start),
+						this.scale);
 				start = undefined;
 			}
 		}
 		if (start !== undefined) {
-			this.ctx.fillRect(this.scale * start, this.scale * row, this.scale
-					* (col - start), this.scale);
+			this.ctx.fillRect(this.scale * start, this.scale * row, this.scale * (col - start),
+					this.scale);
 		}
 	}
+	// marker
 	if (!isNaN(rowOpt) && !isNaN(colOpt)) {
 		xs = (colOpt % cols) * this.scale - 4.5;
 		ys = (rowOpt % rows) * this.scale - 4.5;
-		this.drawWrapped(xs, ys, this.scale + 9, this.scale + 9, this.w,
-				this.h, this.redFocusRectFun, [ xs, ys ]);
+		this.drawWrapped(xs, ys, this.scale + 9, this.scale + 9, this.w, this.h,
+				this.redFocusRectFun, [ xs, ys ]);
 	}
 };
 
@@ -241,9 +233,9 @@ function CanvasElementMiniMap(state) {
 CanvasElementMiniMap.extend(CanvasElementAbstractMap);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -256,8 +248,8 @@ CanvasElementMiniMap.prototype.checkState = function() {
 };
 
 /**
- * Invokes {@link CanvasElementAbstractMap#draw} to draw the map and then
- * renders ants as pixels on top of it.
+ * Invokes {@link CanvasElementAbstractMap#draw} to draw the map and then renders ants as pixels on
+ * top of it.
  */
 CanvasElementMiniMap.prototype.draw = function() {
 	var i, ant, color;
@@ -287,9 +279,9 @@ function CanvasElementMap(state) {
 CanvasElementMap.extend(CanvasElementAbstractMap);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -308,7 +300,7 @@ CanvasElementMap.prototype.checkState = function() {
  *        state the visualizer state for reference
  */
 function CanvasElementFogPattern(state) {
-	CanvasElement.call(this);
+	this.upper();
 	this.state = state;
 	this.player = undefined;
 	this.setSize(2, 2);
@@ -316,9 +308,9 @@ function CanvasElementFogPattern(state) {
 CanvasElementFogPattern.extend(CanvasElement);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -350,7 +342,7 @@ CanvasElementFogPattern.prototype.draw = function() {
  *        pattern the fog pattern to use
  */
 function CanvasElementFog(state, pattern) {
-	CanvasElement.call(this);
+	this.upper();
 	this.state = state;
 	this.turn = 0;
 	this.shiftX = 0;
@@ -364,9 +356,9 @@ function CanvasElementFog(state, pattern) {
 CanvasElementFog.extend(CanvasElement);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -375,8 +367,7 @@ CanvasElementFog.prototype.checkState = function() {
 			|| (this.player !== undefined && ((this.state.shiftX !== this.shiftX && this.w < this.scale
 					* this.state.replay.cols)
 					|| (this.state.shiftY !== this.shiftY && this.h < this.scale
-							* this.state.replay.rows)
-					|| this.turn !== (this.state.time | 0) || this.scale !== this.state.scale))) {
+							* this.state.replay.rows) || this.turn !== (this.state.time | 0) || this.scale !== this.state.scale))) {
 		this.invalid = true;
 		this.shiftX = this.state.shiftX;
 		this.shiftY = this.state.shiftY;
@@ -385,8 +376,7 @@ CanvasElementFog.prototype.checkState = function() {
 		if (this.player !== this.state.fogPlayer) {
 			this.player = this.state.fogPlayer;
 			if (this.player !== undefined) {
-				this.ptrn = this.ctx.createPattern(this.pattern.canvas,
-						'repeat');
+				this.ptrn = this.ctx.createPattern(this.pattern.canvas, 'repeat');
 				this.ctx.clearRect(0, 0, this.w, this.h);
 			}
 		}
@@ -399,8 +389,7 @@ CanvasElementFog.prototype.checkState = function() {
 };
 
 /**
- * Draws the minimal fog image required to cover the currently visible area of
- * the map.
+ * Draws the minimal fog image required to cover the currently visible area of the map.
  */
 CanvasElementFog.prototype.draw = function() {
 	var x, y, rowPixels, colPixels, x_idx, y_idx, rows, cols;
@@ -455,7 +444,7 @@ CanvasElementFog.prototype.draw = function() {
  *        fog the fog overlay
  */
 function CanvasElementAntsMap(state, map, fog) {
-	CanvasElement.call(this);
+	this.upper();
 	this.state = state;
 	this.map = map;
 	this.fog = fog;
@@ -470,13 +459,14 @@ function CanvasElementAntsMap(state, map, fog) {
 	this.mouseOverVis = false;
 	this.mouseCol = 0;
 	this.mouseRow = 0;
+	this.hillImage = null;
 }
 CanvasElementAntsMap.extend(CanvasElement);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -484,8 +474,7 @@ CanvasElementAntsMap.prototype.checkState = function() {
 	var i, k, kf, p_i, p_k, dx, dy, rows, cols, ar, owner;
 	var hash = undefined;
 	var timeChanged = this.time !== this.state.time;
-	if (timeChanged || this.scale !== this.state.scale
-			|| this.label !== this.state.config['label']) {
+	if (timeChanged || this.scale !== this.state.scale || this.label !== this.state.config['label']) {
 		this.invalid = true;
 		this.time = this.state.time;
 		this.scale = this.state.scale;
@@ -519,18 +508,14 @@ CanvasElementAntsMap.prototype.checkState = function() {
 							for (k = this.ants.length - 1; k >= 0; k--) {
 								// this check looks odd, but accounts for
 								// surviving ants
-								if (this.ants[k].death !== this.turn + 1
-										|| k < i) {
+								if (this.ants[k].death !== this.turn + 1 || k < i) {
 									p_k = this.pairing[this.ants[k].id];
-									if (p_k !== undefined
-											&& p_k.owner !== undefined
+									if (p_k !== undefined && p_k.owner !== undefined
 											&& p_i.owner !== p_k.owner) {
 										// distance between ants' end-points
-										dx = Math.wrapAround(p_k.x - p_i.x,
-												cols);
+										dx = Math.wrapAround(p_k.x - p_i.x, cols);
 										if (2 * dx > cols) dx -= cols;
-										dy = Math.wrapAround(p_k.y - p_i.y,
-												rows);
+										dy = Math.wrapAround(p_k.y - p_i.y, rows);
 										if (2 * dy > rows) dy -= rows;
 										if (dx * dx + dy * dy <= ar) {
 											// these two ants will be in attack
@@ -574,18 +559,16 @@ CanvasElementAntsMap.prototype.checkState = function() {
 };
 
 /**
- * Builds the internal list of ants and food that need a circle drawn around
- * them because the mouse cursor is within their radius of effect (either attack
- * or spawn).
+ * Builds the internal list of ants and food that need a circle drawn around them because the mouse
+ * cursor is within their radius of effect (either attack or spawn).
  * 
- * @returns {Boolean} true, if the internal list has changed since the last call
- *          of this method
+ * @returns {Boolean} true, if the internal list has changed since the last call of this method
  */
 CanvasElementAntsMap.prototype.collectAntsAroundCursor = function() {
 	var col, row, ar, sr, colPixels, rowPixels, drawList, i, k, ant, dr, dc;
 	var found;
 	var circledAnts = [];
-	var hash = undefined
+	var hash = undefined;
 	var same = true;
 	if (this.mouseOverVis) {
 		col = this.scale * this.mouseCol;
@@ -605,8 +588,7 @@ CanvasElementAntsMap.prototype.collectAntsAroundCursor = function() {
 				dr = Math.min(dr, rowPixels - dr);
 				dc = Math.min(dc, colPixels - dc);
 				if (ant['owner'] === undefined && (dr * dr + dc * dc <= sr)
-						|| ant['owner'] !== undefined
-						&& (dr * dr + dc * dc <= ar)) {
+						|| ant['owner'] !== undefined && (dr * dr + dc * dc <= ar)) {
 					if (same) {
 						found = false;
 						for (k = 0; k < this.circledAnts.length; k++) {
@@ -626,19 +608,42 @@ CanvasElementAntsMap.prototype.collectAntsAroundCursor = function() {
 	if (same) return false;
 	this.circledAnts = circledAnts;
 	return true;
-}
+};
 
 /**
- * Draws ants onto the map image. This includes overlay letters / ids, attack
- * lines, effect circles and finally the fog of war.
+ * Draws ants onto the map image. This includes overlay letters / ids, attack lines, effect circles
+ * and finally the fog of war.
  */
 CanvasElementAntsMap.prototype.draw = function() {
-	var halfScale, drawList, n, kf, w, dx, dy, d, fontSize, label, caption;
-	var target, rows, cols, x1, y1, x2, y2, rowPixels, colPixels, ar, sr, r;
+	var halfScale, drawList, n, kf, w, dx, dy, d, fontSize, label, caption, order;
+	var target, rows, cols, x1, y1, x2, y2, rowPixels, colPixels, ar, sr, r, hill, hills, i;
 	var hash = undefined;
 
 	// draw map
 	this.ctx.drawImage(this.map.canvas, 0, 0);
+
+	// hills
+	hills = this.state.replay.meta['replaydata']['hills'];
+	if (hills) {
+		for (i = 0; i < hills.length; i++) {
+			hill = hills[i];
+			xs = (hill[1] - 1) * this.scale;
+			ys = (hill[0] - 1) * this.scale;
+			w = 3 * this.scale;
+			d = 60 * hill[2];
+			if (this.turn >= hill[3]) {
+				this.drawWrapped(xs, ys, 3 * this.scale, 3 * this.scale, this.w, this.h,
+						function() {
+							this.ctx.drawImage(this.hillImage, d, 60, 60, 60, xs, ys, w, w);
+						}, []);
+			} else {
+				this.drawWrapped(xs, ys, 3 * this.scale, 3 * this.scale, this.w, this.h,
+						function() {
+							this.ctx.drawImage(this.hillImage, d, 0, 60, 60, xs, ys, w, w);
+						}, []);
+			}
+		}
+	}
 
 	// draw ants sorted by color
 	halfScale = 0.5 * this.scale;
@@ -647,12 +652,13 @@ CanvasElementAntsMap.prototype.draw = function() {
 		drawList = this.drawStates[hash];
 		for (n = drawList.length - 1; n >= 0; n--) {
 			kf = drawList[n];
-			if (kf['owner'] === undefined) {
-				w = halfScale * kf['size'];
-				this.ctx.beginPath();
-				this.ctx.arc(kf.mapX + halfScale, kf.mapY + halfScale, w, 0,
-						2 * Math.PI, false);
-				this.ctx.fill();
+			if (kf['owner'] !== undefined) {
+				this.drawWrapped(kf.mapX, kf.mapY, this.scale, this.scale, this.w, this.h,
+						function(x, y, width) {
+							this.ctx.beginPath();
+							this.ctx.arc(x, y, width, 0, 2 * Math.PI, false);
+							this.ctx.fill();
+						}, [ kf.mapX + halfScale, kf.mapY + halfScale, halfScale * kf['size'] ]);
 			} else {
 				w = this.scale;
 				dx = kf.mapX;
@@ -664,15 +670,6 @@ CanvasElementAntsMap.prototype.draw = function() {
 					w *= kf['size'];
 				}
 				this.ctx.fillRect(dx, dy, w, w);
-				if (dx < 0) {
-					this.ctx.fillRect(dx + this.w, dy, w, w);
-					if (dy < 0) {
-						this.ctx.fillRect(dx + this.w, dy + this.h, w, w);
-					}
-				}
-				if (dy < 0) {
-					this.ctx.fillRect(dx, dy + this.h, w, w);
-				}
 			}
 		}
 	}
@@ -700,9 +697,8 @@ CanvasElementAntsMap.prototype.draw = function() {
 					dy = Math.wrapAround(target.mapY - kf.mapY, rowPixels);
 					if (2 * dy > rowPixels) dy -= rowPixels;
 					y2 = y1 + 0.5 * dy;
-					this.drawWrapped(Math.min(x1, x2) - 1,
-							Math.min(y1, y2) - 1, Math.abs(x2 - x1) + 2, Math
-									.abs(y2 - y1) + 2, colPixels, rowPixels,
+					this.drawWrapped(Math.min(x1, x2) - 1, Math.min(y1, y2) - 1,
+							Math.abs(x2 - x1) + 2, Math.abs(y2 - y1) + 2, colPixels, rowPixels,
 							function(fx1, fy1, fx2, fy2) {
 								this.ctx.moveTo(fx1, fy1);
 								this.ctx.lineTo(fx2, fy2);
@@ -732,11 +728,10 @@ CanvasElementAntsMap.prototype.draw = function() {
 			r = (kf['owner'] === undefined) ? sr : ar;
 			x1 = dx - r;
 			y1 = dy - r;
-			this.drawWrapped(x1, y1, 2 * r, 2 * r, colPixels, rowPixels,
-					function() {
-						this.ctx.moveTo(dx + r, dy);
-						this.ctx.arc(dx, dy, r, 0, 2 * Math.PI, false);
-					});
+			this.drawWrapped(x1, y1, 2 * r, 2 * r, colPixels, rowPixels, function() {
+				this.ctx.moveTo(dx + r, dy);
+				this.ctx.arc(dx, dy, r, 0, 2 * Math.PI, false);
+			});
 			this.ctx.stroke();
 		}
 	}
@@ -744,7 +739,7 @@ CanvasElementAntsMap.prototype.draw = function() {
 	// draw A, B, C, D ... on ants or alternatively the global kf id
 	label = this.state.config['label'];
 	if (label) {
-		fontSize = Math.ceil(Math.max(this.scale, 8) / label);
+		fontSize = Math.ceil(Math.max(this.scale, 10) / label);
 		this.ctx.save();
 		this.ctx.translate(halfScale, halfScale);
 		this.ctx.textBaseline = 'middle';
@@ -753,13 +748,17 @@ CanvasElementAntsMap.prototype.draw = function() {
 		this.ctx.fillStyle = '#000';
 		this.ctx.strokeStyle = '#fff';
 		this.ctx.lineWidth = 0.2 * fontSize;
+		order = new Array(this.state.order.length);
+		for (n = 0; n < order.length; n++) {
+			order[this.state.order[n]] = n;
+		}
 		for (hash in this.drawStates) {
 			drawList = this.drawStates[hash];
 			for (n = drawList.length - 1; n >= 0; n--) {
 				kf = drawList[n];
 				if (label === 1) {
 					if (kf['owner'] === undefined) continue;
-					caption = String.fromCharCode(65 + kf['owner']);
+					caption = String.fromCharCode(0x3b1 + order[kf['owner']]);
 				} else {
 					caption = kf.antId;
 				}
@@ -769,10 +768,8 @@ CanvasElementAntsMap.prototype.draw = function() {
 					this.ctx.strokeText(caption, kf.mapX + this.map.w, kf.mapY);
 					this.ctx.fillText(caption, kf.mapX + this.map.w, kf.mapY);
 					if (kf.mapY < 0) {
-						this.ctx.strokeText(caption, kf.mapX + this.map.w,
-								kf.mapY + this.map.h);
-						this.ctx.fillText(caption, kf.mapX + this.map.w,
-								kf.mapY + this.map.h);
+						this.ctx.strokeText(caption, kf.mapX + this.map.w, kf.mapY + this.map.h);
+						this.ctx.fillText(caption, kf.mapX + this.map.w, kf.mapY + this.map.h);
 					}
 				}
 				if (kf.mapY < 0) {
@@ -786,20 +783,26 @@ CanvasElementAntsMap.prototype.draw = function() {
 
 	// fog
 	if (this.state.fogPlayer !== undefined) {
-		dx = (this.fog.w < colPixels) ? 0.5 * (colPixels - this.fog.w)
-				- this.fog.shiftX : 0;
-		dy = (this.fog.h < rowPixels) ? 0.5 * (rowPixels - this.fog.h)
-				- this.fog.shiftY : 0;
-		this.drawWrapped(dx, dy, this.fog.w, this.fog.h, this.w, this.h,
-				function(ctx, img, x, y) {
-					ctx.drawImage(img, x, y);
-				}, [ this.ctx, this.fog.canvas, dx, dy ]);
+		dx = (this.fog.w < colPixels) ? 0.5 * (colPixels - this.fog.w) - this.fog.shiftX : 0;
+		dy = (this.fog.h < rowPixels) ? 0.5 * (rowPixels - this.fog.h) - this.fog.shiftY : 0;
+		this.drawWrapped(dx, dy, this.fog.w, this.fog.h, this.w, this.h, function(ctx, img, x, y) {
+			ctx.drawImage(img, x, y);
+		}, [ this.ctx, this.fog.canvas, dx, dy ]);
 	}
 };
 
 /**
- * @class The main map with ants, dragged with the mouse and extended by borders
- *        if required
+ * Sets the ant hill image to use when drawing the map.
+ * 
+ * @param {HTMLCanvasElement}
+ *        hillImage a colorized hill graphic.
+ */
+CanvasElementAntsMap.prototype.setHillImage = function(hillImage) {
+	this.hillImage = hillImage;
+};
+
+/**
+ * @class The main map with ants, dragged with the mouse and extended by borders if required
  * @extends CanvasElement
  * @constructor
  * @param {State}
@@ -808,7 +811,7 @@ CanvasElementAntsMap.prototype.draw = function() {
  *        antsMap the prepared map with ants
  */
 function CanvasElementShiftedMap(state, antsMap) {
-	CanvasElement.call(this);
+	this.upper();
 	this.state = state;
 	this.antsMap = antsMap;
 	this.dependsOn(antsMap);
@@ -818,9 +821,9 @@ function CanvasElementShiftedMap(state, antsMap) {
 CanvasElementShiftedMap.extend(CanvasElement);
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -833,8 +836,8 @@ CanvasElementShiftedMap.prototype.checkState = function() {
 };
 
 /**
- * Draws the visible portion of the map with ants. If the map is smaller than
- * the view area it is repeated in a darker shade on both sides.
+ * Draws the visible portion of the map with ants. If the map is smaller than the view area it is
+ * repeated in a darker shade on both sides.
  */
 CanvasElementShiftedMap.prototype.draw = function() {
 	var x, y, dx, dy;
@@ -890,7 +893,7 @@ CanvasElementShiftedMap.prototype.draw = function() {
  *        stats name of the stats to query from the visualizer
  */
 function CanvasElementGraph(state, stats) {
-	CanvasElement.call(this);
+	this.upper();
 	this.state = state;
 	this.stats = stats;
 	this.duration = 0;
@@ -898,48 +901,29 @@ function CanvasElementGraph(state, stats) {
 CanvasElementGraph.extend(CanvasElement);
 
 /**
- * Tries to replace the given player's status at the end of the match with a
- * Unicode glyph. This is basically to reduce the noise caused by the longer
- * textual descriptions.
+ * Tries to replace the given player's status at the end of the match with a Unicode glyph. This is
+ * basically to reduce the noise caused by the longer textual descriptions.
  * 
  * @private
- * @param i
- *        {Number} the zero based player index
- * @returns Returns a well supported Unicode glyph for some known status, or the
- *          original status text otherwise.
+ * @param {Number}
+ *        i the zero based player index
+ * @returns Returns a well supported Unicode glyph for some known status, or the original status
+ *          text otherwise.
  */
 CanvasElementGraph.prototype.statusToGlyph = function(i) {
-	var status = this.state.replay.meta['status'][i];
-	if (status === 'survived') {
+	var status_i = this.state.replay.meta['status'][i];
+	if (status_i === 'survived') {
 		return '\u2713';
-	} else if (status === 'eliminated') {
+	} else if (status_i === 'eliminated') {
 		return '\u2717';
-	} else {
-		return this.state.replay.meta['status'][i];
 	}
+	return status_i;
 };
 
 /**
- * Helper function that returns a replay property with the given name, that
- * should refer to a statistics array. If the name is 'scores' the replay is
- * also checked for the end game bonus.
- * 
- * @param name
- *        {String} the property name to be queried
- * @returns {___anonymous27567_27698}
- */
-CanvasElementGraph.prototype.getStats = function(name) {
-	return {
-		values : this.state.replay[name],
-		bonus : name === 'scores'
-				? this.state.replay.meta['replaydata']['bonus'] : undefined
-	};
-};
-
-/**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
@@ -950,8 +934,12 @@ CanvasElementGraph.prototype.checkState = function() {
 	}
 };
 
+/**
+ * Renders a timeline of the statistical values. The graphs are annotated by the player's state in
+ * it's last turn.
+ */
 CanvasElementGraph.prototype.draw = function() {
-	var min, max, i, k, t, scaleX, scaleY, status, x, y, tw, tx;
+	var min, max, i, k, t, scaleX, scaleY, txt, x, y, tw, tx;
 	var w = this.w - 1;
 	var h = this.h - 1;
 	var replay = this.state.replay;
@@ -973,7 +961,7 @@ CanvasElementGraph.prototype.draw = function() {
 	this.ctx.strokeStyle = 'rgba(0,0,0,0.5)';
 	this.ctx.beginPath();
 	for (k = 1; k * scaleX < 2;) {
-		k *= 10
+		k *= 10;
 	}
 	for (i = k - 1; i <= this.duration + 1; i += k) {
 		t = ((i + 1) % (100 * k) ? (i + 1) % (10 * k) ? 3 : 7 : 11);
@@ -989,8 +977,7 @@ CanvasElementGraph.prototype.draw = function() {
 		this.ctx.beginPath();
 		this.ctx.moveTo(0.5, 0.5 + scaleY * (max - values[0][i]));
 		for (k = 1; k <= this.duration; k++) {
-			this.ctx.lineTo(0.5 + scaleX * k, 0.5 + scaleY
-					* (max - values[k][i]));
+			this.ctx.lineTo(0.5 + scaleX * k, 0.5 + scaleY * (max - values[k][i]));
 		}
 		this.ctx.stroke();
 	}
@@ -1004,21 +991,21 @@ CanvasElementGraph.prototype.draw = function() {
 			x = 0.5 + k * scaleX;
 			y = 0.5 + scaleY * (max - values[k][i]);
 			this.ctx.moveTo(x, y);
-			status = this.statusToGlyph(i);
-			tw = this.ctx.measureText(status).width;
+			txt = this.statusToGlyph(i);
+			tw = this.ctx.measureText(txt).width;
 			tx = Math.min(x, w - tw);
 			if (y < 30) {
 				y = ((y + 12) | 0) + 0.5;
 				this.ctx.lineTo(x, y - 8);
 				this.ctx.moveTo(tx, y - 8);
 				this.ctx.lineTo(tx + tw, y - 8);
-				this.ctx.fillText(status, tx, y);
+				this.ctx.fillText(txt, tx, y);
 			} else {
 				y = ((y - 7) | 0) + 0.5;
 				this.ctx.lineTo(x, y + 2);
 				this.ctx.moveTo(tx, y + 2);
 				this.ctx.lineTo(tx + tw, y + 2);
-				this.ctx.fillText(status, tx, y);
+				this.ctx.fillText(txt, tx, y);
 			}
 			this.ctx.stroke();
 		}
@@ -1026,8 +1013,30 @@ CanvasElementGraph.prototype.draw = function() {
 };
 
 /**
- * @class A canvas element for statistics. It makes use of
- *        {@link CanvasElementGraph}.
+ * Helper function that returns a replay property with the given name, that should refer to a
+ * statistics array. If the name is 'scores' the replay is also checked for the end game bonus.
+ * 
+ * @param {String}
+ *        name The property name to be queried.
+ * @returns {Stats} the statistics set for the given item name.
+ */
+CanvasElementGraph.prototype.getStats = function(name) {
+	var values = this.state.replay[name];
+	var bonus;
+	if (name === 'counts') {
+		bonus = this.state.replay['sores'];
+	} else {
+		bonus = new Array(values.length);
+		if (name === 'scores' && this.turn === this.state.replay.duration) {
+			bonus[values.length - 1] = this.state.replay.meta['replaydata']['bonus'];
+		}
+	}
+	return new Stats(values, bonus);
+};
+
+/**
+ * @class A canvas element for statistics. It makes use of {@link CanvasElementGraph}.
+ * @extends CanvasElement
  * @constructor
  * @param {State}
  *        state the visualizer state for reference
@@ -1035,22 +1044,40 @@ CanvasElementGraph.prototype.draw = function() {
  *        caption the caption that is show to the left of the bar graph
  * @param {String}
  *        stats name of the stats to query from the visualizer
+ * @param {String}
+ *        bonusText Title over bonus section in the graph.
  */
-function CanvasElementStats(state, caption, stats) {
-	CanvasElement.call(this);
+function CanvasElementStats(state, caption, stats, bonusText) {
+	this.upper();
 	this.state = state;
 	this.caption = caption;
 	this.graph = new CanvasElementGraph(state, stats);
 	this.turn = 0;
 	this.time = 0;
 	this.label = false;
+	this.bonusText = bonusText;
 }
-
 CanvasElementStats.extend(CanvasElement);
 
+/**
+ * Size without timeline.
+ */
 CanvasElementStats.MIN_HEIGHT = 30;
+/**
+ * Size with timeline.
+ */
 CanvasElementStats.MAX_HEIGHT = CanvasElementStats.MIN_HEIGHT + 70;
 
+/**
+ * Sets the size of this CanvasElementStats and the contained {@link CanvasElementGraph} and
+ * invalidates both, if an actual change is detected.
+ * 
+ * @param {Number}
+ *        width the new width
+ * @param {Number}
+ *        height the new height
+ * @see CanvasElement#setSize
+ */
 CanvasElementStats.prototype.setSize = function(width, height) {
 	CanvasElement.prototype.setSize.call(this, width, height);
 	this.graph.x = this.x + 4;
@@ -1060,15 +1087,14 @@ CanvasElementStats.prototype.setSize = function(width, height) {
 };
 
 /**
- * Causes a comparison of the relevant values that make up the visible content
- * of this canvas between the visualizer and cached values. If the cached values
- * are out of date the canvas is marked as invalid.
+ * Causes a comparison of the relevant values that make up the visible content of this canvas
+ * between the visualizer and cached values. If the cached values are out of date the canvas is
+ * marked as invalid.
  * 
  * @returns {Boolean} true, if the internal state has changed
  */
 CanvasElementStats.prototype.checkState = function() {
-	if ((this.showGraph && this.time !== this.state.time)
-			|| this.time !== (this.state.time | 0)
+	if ((this.showGraph && this.time !== this.state.time) || this.time !== (this.state.time | 0)
 			|| this.label !== (this.state.config['label'] === 1)) {
 		this.invalid = true;
 		this.time = this.state.time;
@@ -1077,6 +1103,13 @@ CanvasElementStats.prototype.checkState = function() {
 	}
 };
 
+/**
+ * Daws a bar graph for the current turn and - if enabled - the contained time line.
+ * 
+ * @param resized
+ *        {Boolean} Indicates weather the canvas has been resized and even static elements of the
+ *        display have to be redrawn.
+ */
 CanvasElementStats.prototype.draw = function(resized) {
 	var stats, text, x;
 	if (resized) {
@@ -1086,7 +1119,7 @@ CanvasElementStats.prototype.draw = function(resized) {
 		// outlines
 		this.ctx.strokeStyle = '#444';
 		this.ctx.lineWidth = 2;
-		shapeRoundedRect(this.ctx, 0, 0, this.w, this.h, 1, 5);
+		Shape.roundedRect(this.ctx, 0, 0, this.w, this.h, 1, 5);
 		if (this.showGraph) {
 			this.ctx.moveTo(0, 29);
 			this.ctx.lineTo(this.w, 29);
@@ -1102,10 +1135,8 @@ CanvasElementStats.prototype.draw = function(resized) {
 	}
 
 	// draw scores
-	stats = this.graph.getStats(this.graph.stats);
-	this.drawColorBar(95, 4, this.w - 99, 22, stats.values[this.turn],
-			(this.turn === this.state.replay.duration) ? stats.bonus
-					: undefined);
+	stats = this.getStats(this.graph.stats, this.turn);
+	this.drawColorBar(95, 2, this.w - 99, 26, stats, this.bonusText);
 
 	// graph
 	if (this.showGraph) {
@@ -1129,8 +1160,28 @@ CanvasElementStats.prototype.draw = function(resized) {
 };
 
 /**
- * Renders a horizontal bar graph of fixed size. Each block is colored using the
- * respective player color.
+ * Helper function that returns a replay property with the given name, that should refer to a
+ * statistics array. If the name is 'scores' the replay is also checked for the end game bonus.
+ * 
+ * @param {String}
+ *        name The property name to be queried.
+ * @param {Number}
+ *        turn The turn for which to fetch the stats
+ * @returns {Stats} the statistics set for the given item name.
+ */
+CanvasElementStats.prototype.getStats = function(name, turn) {
+	var values = this.state.replay[name][turn];
+	var bonus = undefined;
+	if (name === 'scores' && this.turn === this.state.replay.duration) {
+		bonus = this.state.replay.meta['replaydata']['bonus'];
+	} else if (name === 'counts') {
+		bonus = this.state.replay['stores'][turn];
+	}
+	return new Stats(values, bonus);
+};
+
+/**
+ * Renders a horizontal 'stacked' bar graph.
  * 
  * @private
  * @param {Number}
@@ -1141,72 +1192,147 @@ CanvasElementStats.prototype.draw = function(resized) {
  *        w the width
  * @param {Number}
  *        h the height
- * @param {Array}
- *        values the values to display
- * @param {Array}
- *        bonus the bonus to apply to 'values', if any; the text will display
- *        value and bonus separated by a '+'
+ * @param {Stats}
+ *        stats The values and boni to display. The bonus field can be undefined or contain
+ *        undefined values.
+ * @param {String}
+ *        bonusText Title over bonus section.
  */
-CanvasElementStats.prototype.drawColorBar = function(x, y, w, h, values, bonus) {
-	var useValues, i, scale, offsetX, offsetY, amount, text;
-	var sum = 0;
-	this.ctx.save();
-	this.ctx.beginPath();
-	this.ctx.rect(x, y, w, h);
-	this.ctx.clip();
-	for (i = 0; i < values.length; i++) {
-		sum += bonus ? values[i] + bonus[i] : values[i];
-	}
-	useValues = new Array(values.length);
-	if (sum == 0) {
-		for (i = 0; i < values.length; i++) {
-			useValues[i] = 1;
-		}
-		sum = values.length;
-	} else {
-		for (i = 0; i < values.length; i++) {
-			useValues[i] = bonus ? values[i] + bonus[i] : values[i];
-		}
-	}
-	scale = w / sum;
-	offsetX = x;
-	for (i = 0; i < useValues.length; i++) {
-		amount = scale * useValues[i];
-		this.ctx.fillStyle = this.state.replay.htmlPlayerColors[i];
-		this.ctx.fillRect(offsetX, y, w - offsetX + x, h);
-		offsetX += amount;
-	}
-	this.ctx.textAlign = 'left';
-	this.ctx.textBaseline = 'top';
-	this.ctx.font = 'bold 16px Monospace';
-	this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
-	offsetY = y + 3;
-	offsetX = x + 2;
-	for (i = 0; i < useValues.length; i++) {
-		text = Math.round(values[i]);
-		if (this.label) {
-			text = String.fromCharCode(65 + i) + ':' + text;
-		}
-		var bonusText = (bonus && bonus[i]) ? '+' + Math.round(bonus[i]) : '';
-		var textWidth = this.ctx.measureText(text).width;
-		if (bonusText) {
-			this.ctx.font = 'bold italic 12px Monospace';
-			var bonusTextWidth = this.ctx.measureText(bonusText).width;
-			this.ctx.font = 'bold 16px Monospace';
-		} else {
-			bonusTextWidth = 0;
-		}
-		if (scale * useValues[i] >= textWidth + bonusTextWidth) {
-			this.ctx.fillText(text, offsetX, offsetY);
-			if (bonusText) {
-				this.ctx.font = 'bold italic 12px Monospace';
-				this.ctx.fillStyle = 'rgba(0,0,0,0.8)';
-				this.ctx.fillText(bonusText, offsetX + textWidth, offsetY);
-				this.ctx.font = 'bold 16px Monospace';
-				this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+CanvasElementStats.prototype.drawColorBar = function(x, y, w, h, stats, bonusText) {
+	var i, idx, wUsable, xNegSep;
+	var showBoni = false;
+	var boni = new Array(stats.values.length);
+	var boniList = new Array(stats.values.length);
+	var negatives = new Array();
+	var positives = new Array();
+	var sumBoni = 0;
+	var sumNegative = 0;
+	var sumPositive = 0;
+	var sumValues, sum;
+	var xOffset = x;
+	var drawPart = function(ctx, pixels, div, list, values, state, arrow) {
+		var k, kIdx, wBarRaw, wBar, textWidth;
+		ctx.save();
+		for (k = 0; k < list.length; k++) {
+			kIdx = state.order[list[k]];
+			ctx.fillStyle = state.replay.htmlPlayerColors[kIdx];
+			if (div) {
+				wBarRaw = Math.abs(values[kIdx]) * pixels / div;
+			} else {
+				wBarRaw = pixels / values.length;
+			}
+			if (wBarRaw !== 0) {
+				// always draw a full width pixel to avoid aliasing
+				wBar = Math.ceil(xOffset + wBarRaw) - xOffset;
+				wBar = Math.min(x + w - xOffset, wBar);
+				if (arrow) {
+					ctx.beginPath();
+					if (values[kIdx] >= 0) {
+						ctx.moveTo(xOffset, y + 2);
+						ctx.lineTo(xOffset + wBar, y + h / 2);
+						ctx.lineTo(xOffset, y + h - 2);
+					} else {
+						ctx.moveTo(xOffset + wBar, y + 2);
+						ctx.lineTo(xOffset, y + h / 2);
+						ctx.lineTo(xOffset + wBar, y + h - 2);
+					}
+					ctx.fill();
+				} else {
+					ctx.fillRect(xOffset, y + 2, wBar, h - 4);
+				}
+				ctx.textBaseline = 'middle';
+				ctx.font = 'bold 16px Monospace';
+				ctx.fillStyle = 'rgba(0,0,0,0.5)';
+				textWidth = ctx.measureText(values[kIdx]).width + 4;
+				if (textWidth <= wBar) {
+					if (values[kIdx] >= 0) {
+						ctx.textAlign = 'left';
+						ctx.fillText(values[kIdx], xOffset + 2, y + h / 2);
+					} else {
+						ctx.textAlign = 'right';
+						ctx.fillText(values[kIdx], xOffset + wBarRaw - 2, y + h / 2);
+					}
+				}
+				xOffset += wBarRaw;
 			}
 		}
-		offsetX += scale * useValues[i];
+		ctx.restore();
+	};
+	this.ctx.save();
+	this.ctx.fillStyle = '#fff';
+	this.ctx.beginPath();
+	this.ctx.rect(x, y, w, h);
+	this.ctx.fill();
+	// will we show a separate bonus section?
+	for (i = 0; i < stats.values.length; i++) {
+		if (stats.bonus !== undefined && stats.bonus[i]) {
+			boni[i] = stats.bonus[i];
+			sumBoni += boni[i];
+			showBoni = true;
+		} else {
+			boni[i] = 0;
+		}
+		boniList[i] = i;
+	}
+	wUsable = showBoni ? w - 6 : w;
+	// sum up absolutes of all values to determine width
+	for (i = 0; i < stats.values.length; i++) {
+		idx = this.state.order[i];
+		if (stats.values[idx] >= 0) {
+			positives.push(i);
+			sumPositive += stats.values[idx];
+		} else {
+			negatives.push(i);
+			sumNegative -= stats.values[idx];
+		}
+	}
+	sumValues = sumNegative + sumPositive;
+	sum = sumValues + sumBoni;
+	// show negative scores
+	if (negatives.length) {
+		drawPart(this.ctx, wUsable, sum, negatives, stats.values, this.state, true);
+	}
+	xNegSep = (x + sumNegative * wUsable / sum) | 0;
+	// show positive scores
+	drawPart(this.ctx, wUsable, sum, positives, stats.values, this.state, false);
+	this.ctx.lineWidth = 2;
+	this.ctx.strokeStyle = '#000';
+	this.ctx.beginPath();
+	if (showBoni) {
+		xOffset = Math.ceil(xOffset) + 3;
+		this.ctx.moveTo(xOffset, y);
+		this.ctx.lineTo(xOffset, y + h);
+	}
+	if (negatives.length) {
+		this.ctx.moveTo(xNegSep, y + 2);
+		this.ctx.lineTo(xNegSep, y + h - 2);
+	}
+	this.ctx.stroke();
+	this.ctx.fillStyle = '#000';
+	this.ctx.font = 'bold 12px Monospace';
+	this.ctx.textBaseline = 'top';
+	// draw boni
+	if (showBoni) {
+		xOffset += 3;
+		drawPart(this.ctx, wUsable, sum, boniList, boni, this.state, true);
+		this.ctx.textAlign = 'right';
+		this.ctx.fillText(bonusText, x + w - 2, y);
 	}
 	this.ctx.restore();
 };
+
+/**
+ * @class A helper class to transfer statistical values inside {@link CanvasElement} descendants.
+ * @constructor
+ * @param values
+ *        {Array} Statistical values for every player and turn.
+ * @param bonus
+ *        {Array} The bonus that will be added to each player's values at the end of the replay. Can
+ *        be undefined and is used for the 'scores' statistical item.
+ * @property values {Array}
+ * @property bonus {Array}
+ */
+function Stats(values, bonus) {
+	this.values = values;
+	this.bonus = bonus;
+}
