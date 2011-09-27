@@ -1,4 +1,7 @@
 # A minimal SQLite shell for experiments
+#
+# update players set skill=0.0, mu=50.0, sigma=13.3 ;
+#
 
 import sqlite3
 
@@ -8,7 +11,7 @@ cur = con.cursor()
 
 buffer = ""
 
-print "Enter your SQL commands to execute in sqlite3."
+print "Enter your SQL commands(split by: ';') to execute in sqlite3."
 print "Enter a blank line to exit."
 
 while True:

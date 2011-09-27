@@ -83,8 +83,29 @@ class AntsHttpServer(HTTPServer):
         self.opts = None
         self.maps = None
         self.cache = {}
+        self.cache_file("/favicon.ico","favicon.ico")
+        self.cache_file("/tcpclient.py", "clients/tcpclient.py")
+        self.cache_dir("js")
+        self.cache_dir("data/img")
         HTTPServer.__init__(self, *args)
         
+    def cache_file(self,fname,fpath):
+        try:
+            f = open(fpath,"rb")
+            output = f.read()
+            f.close()
+            log.info("added static %s to cache." % fname)
+            self.cache[fname] = output
+        except Exception, e:
+            log.error("caching %s failed. %s" % (fname,e))
+        
+    def cache_dir(self,dir):
+        for root,dirs,filenames in os.walk(dir):
+            for filename in filenames:
+                fname = "/" + dir + "/" + filename
+                fpath = dir + "/" + filename
+                self.cache_file(fname,fpath)
+
         
 class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def __init__(self, *args):
@@ -117,7 +138,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/clients/tcpclient.py' title='get the python client'> Client.py </a>
+        <a href='/tcpclient.py' title='get the python client'> Client.py </a>
         <br><p></b>
         """
         return head
@@ -179,7 +200,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
     def game_head(self):
-        return """<table id='games' class='tablesorter' width='100%'>
+        return """<table id='games' class='tablesorter' width='98%'>
             <thead><tr><th>Game </th><th>Players</th><th>Turns</th><th>Date</th><th>Map</th></tr></thead>"""
         
         
@@ -195,7 +216,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
         
     def rank_head(self):
-        return """<table id='players' class='tablesorter' width='100%'>
+        return """<table id='players' class='tablesorter' width='98%'>
             <thead><tr><th>Player</th><th>Rank</th><th>Skill</th><th>Mu</th><th>Sigma</th><th>Games</th><th>Last Seen</th></tr></thead>"""
         
     def page_counter(self,url,nelems):
@@ -252,10 +273,14 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         
     def serve_player(self, match):
         player = match.group(0).split("/")[2]
+        res = self.server.db.get_player((player,))
+        if len(res)< 1:
+            self.send_error(404, 'Player Not Found: %s' % self.path)
+            return            
         html = self.header( player )
         html += self.rank_head()
         html += "<tbody>"
-        html += self.rank_line( self.server.db.get_player((player,))[0] )
+        html += self.rank_line( res[0] )
         html += "</tbody></table>"
         html += self.game_head()
         html += "<tbody>"
@@ -303,7 +328,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             m = f.read()
             f.close()
         except:
-            self.send_error(404, 'File Not Found: %s' % self.path)
+            self.send_error(404, 'Map Not Found: %s' % self.path)
             return
         w=0
         h=0
@@ -345,10 +370,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
     ## static files will get cached in a dict
     def serve_file(self, match):
-        if match.group(0).find("sqlite") > -1: # leave the db alone
-            self.send_error(401, 'no.')
-            
-            self.server.cache[fname] = output
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:
             junk,end = match.group(0).split('.')
@@ -356,32 +377,17 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         except:
             mime_type = 'text/plain'
             
-        fname = os.getcwd() + match.group(0)
+        fname = match.group(0)
         if not fname in self.server.cache:
-            try:    
-                f = open(fname,"rb")
-                output = f.read()
-                f.close()
-                log.info("added static %s to cache." % fname)
-                ## don't cache replays.
-                if match.group(0).find("replay") < 0:
-                    self.server.cache[fname] = output
-            except:
-                self.send_error(404, 'File Not Found: %s' % self.path)
-                return
-        else:
-            output = self.server.cache[fname] 
+            self.send_error(404, 'File Not Found: %s' % self.path)
+            return
             
         self.send_head(mime_type)
-        self.wfile.write(output)
+        self.wfile.write(self.server.cache[fname] )
         
         
     def do_GET(self):
-    
-        if self.path.find("..") > 0:
-            self.send_error(404, 'No cheating, please!: %s' % self.path)
-            return
-            
+                
         if self.path == '/':
             self.serve_main(None)
             return

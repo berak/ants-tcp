@@ -1,5 +1,5 @@
 
-a complete rewrite of the ants-tcp server (2.7 < python < 3).
+a complete rewrite of the ants-tcp server (2.6 < python < 3).
 
 
 both servers got totally separated now, data is shared via sqlite.
@@ -14,6 +14,10 @@ tcpserver.py:
 webserver.py:
 	default port is 2080.
 	please look at the options & edit at the bottom in main.
+
+
+sql.py:
+	small sql shell to peek into the db, or do remote changes
 
 
 i'm shure, this contains bugs...

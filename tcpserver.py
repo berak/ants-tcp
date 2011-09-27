@@ -210,8 +210,8 @@ class TcpGame(threading.Thread):
             log.error("broken game %d: %s" % (self.id,game_result) )
             return
             
-        scores = self.ants.get_scores()
-        ranks = [sorted(scores, reverse=True).index(x) for x in scores]
+        scores = game_result["score"]
+        ranks  = game_result["rank"]
 
         # count draws
         draws = 0
@@ -219,7 +219,7 @@ class TcpGame(threading.Thread):
         for r in ranks:
             hist[r] += 1
         for h in hist:
-            if h:  draws += h
+            if h>0:  draws += (h-1)
             
         # save replay, add playernames to it
         game_result['game_id'] = self.id
@@ -261,6 +261,7 @@ class TcpGame(threading.Thread):
         log.info("players: %s" % self.players)
         log.info("ranks  : %s   %s draws" % (ranks, draws) )
         log.info("scores : %s" % scores)
+        log.info("status : %s" % states)
             
         
         
@@ -517,8 +518,8 @@ def main():
         'kill_points': 2,
         
         ## non-ants related tcp opts
-        'trueskill': 'jskills',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
-        'cp_separator': ':',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
+        'trueskill': 'py',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
+        'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
         'db_max_games': 1000,	# how many game_infos should be kept in memory
         'multi_games': 'True',  # allow users to play multiple games at the same time
                                 # if set to False, players will have to wait until their latest game ended
