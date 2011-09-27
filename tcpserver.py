@@ -7,6 +7,7 @@ import sys
 import os
 import logging
 import json
+import zlib
 import random
 import threading
 import trueskill
@@ -226,13 +227,19 @@ class TcpGame(threading.Thread):
         game_result['playernames'] = []
         for i,p in enumerate(self.players):
             game_result['playernames'].append(p)
-        rep_name = "games/"+ str(self.id)+".replay"
-        f = open( rep_name, 'w' )
-        json.dump(game_result,f)
-        f.close()
+        #~ rep_name = "games/"+ str(self.id)+".replay"
+        
+        #~ f = open( rep_name, 'w' )
+        #~ json.dump(game_result,f)
+        #~ f.close()
+        
         
         # save to db
         self.db = game_db.GameDB()
+        #~ data = zlib.compress(json.dumps(game_result))
+        data = json.dumps(game_result)
+        self.db.add_replay( self.id, data )
+        
         plr = {}
         for i,p in enumerate(self.players):
             plr[p] = (scores[i], states[i])
@@ -294,7 +301,11 @@ class TcpGame(threading.Thread):
 
     def calk_ranks_js( self, players, ranks ):
         ## java needs ';' as separator for win23, ':' for nix&mac
-        classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
+        sep = ':'
+        if os.name == 'nt':
+            sep=';'
+        #~ classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
+        classpath = "jskills/JSkills_0.9.0.jar"+sep+"jskills"
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 
@@ -439,7 +450,7 @@ class TCPGameServer(object):
                 log.exception(e)
                 break
             except KeyboardInterrupt, e:
-                break
+                return
 
             for s in inputready:
                 if s == self.server:
@@ -518,8 +529,7 @@ def main():
         'kill_points': 2,
         
         ## non-ants related tcp opts
-        'trueskill': 'py',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
-        'cp_separator': ';',	# if using java trueskill, you need to tell the separator for the classpath, its ';' for win and ':' for nix
+        'trueskill': 'jskills',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
         'db_max_games': 1000,	# how many game_infos should be kept in memory
         'multi_games': 'True',  # allow users to play multiple games at the same time
                                 # if set to False, players will have to wait until their latest game ended

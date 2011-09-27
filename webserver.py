@@ -4,6 +4,7 @@ import re
 import threading
 import logging
 import json
+import zlib
 import random
 import time
 import SimpleHTTPServer
@@ -161,12 +162,14 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_visualizer(self, match):
         try:
             junk,gid = match.group(0).split('.')
-            rep_file = os.getcwd() + "/games/" + gid + ".replay"
-            f = open(rep_file)
-            replaydata = f.read()
-            f.close()
-        except:
-            self.send_error(404, 'File Not Found: %s.replay' % self.path)
+            #~ rep_file = os.getcwd() + "/games/" + gid + ".replay"
+            #~ f = open(rep_file)
+            #~ replaydata = f.read()
+            #~ f.close()
+            #~ replaydata = zlib.decompress(self.server.db.get_replay(gid)[0][0])
+            replaydata = self.server.db.get_replay(gid)[0][0]
+        except Exception, e:
+            self.send_error(500, '%s' % (e,))
             return
         html = """
             <html>
@@ -368,7 +371,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
             
             
-    ## static files will get cached in a dict
+    ## static files aer served from cache
     def serve_file(self, match):
         mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:

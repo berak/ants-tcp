@@ -7,6 +7,8 @@ class GameDB():
 	
 	def __init__( self, file="antsdb.sqlite3" ):
 		self.con = sqlite3.connect(file);
+		#~ self.con.text_factory = sqlite3.OptimizedUnicode
+		#~ self.con.text_factory = str
 		self.recreate()
 		
 	def __del__( self ):
@@ -18,6 +20,7 @@ class GameDB():
 			cur.execute("create table gameindex(id integer primary key autoincrement, player text, gameid integer)")
 			cur.execute("create table games(id integer, players text, map text, datum date, turns integer default 0, draws integer default 0)")
 			cur.execute("create table players(id integer primary key autoincrement, name text unique, password text, lastseen date, rank integer default 1000, skill real default 0.0, mu real default 50.0, sigma real default 13.3,ngames integer default 0)")
+			cur.execute("create table replays(id integer, json blob)")
 			self.con.commit()
 		except:
 			pass
@@ -35,8 +38,19 @@ class GameDB():
 		cur.execute(sql,tup)
 		return cur.fetchall()
 
-	def add_game( self, id, map, turns, draws, players ):
-		self.update("insert into games values(?,?,?,?,?,?)", (id,players,self.now(),map,turns,draws))
+	def get_replay( self, i ):
+		#~ self.con.text_factory = buffer
+		rep = self.retrieve("select json from replays where id=?", (i,) )
+		#~ self.con.text_factory = str
+		return rep
+		
+	def add_replay( self, i, txt ):
+		#~ self.con.text_factory = buffer
+		self.update("insert into replays values(?,?)", (i,txt) )
+		#~ self.con.text_factory = str
+		
+	def add_game( self, i, map, turns, draws, players ):
+		self.update("insert into games values(?,?,?,?,?,?)", (i,players,self.now(),map,turns,draws))
 		
 	def num_games( self ):
 		return int(self.retrieve( "select count(*) from games" )[0][0])
