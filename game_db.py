@@ -2,13 +2,13 @@
 
 import sqlite3
 import datetime
+import zlib
+#~ import json
 
 class GameDB():
 	
 	def __init__( self, file="antsdb.sqlite3" ):
 		self.con = sqlite3.connect(file);
-		#~ self.con.text_factory = sqlite3.OptimizedUnicode
-		#~ self.con.text_factory = str
 		self.recreate()
 		
 	def __del__( self ):
@@ -39,15 +39,14 @@ class GameDB():
 		return cur.fetchall()
 
 	def get_replay( self, i ):
-		#~ self.con.text_factory = buffer
 		rep = self.retrieve("select json from replays where id=?", (i,) )
-		#~ self.con.text_factory = str
-		return rep
+		return zlib.decompress(rep[0][0])
+		#~ return rep[0][0]
 		
 	def add_replay( self, i, txt ):
-		#~ self.con.text_factory = buffer
-		self.update("insert into replays values(?,?)", (i,txt) )
-		#~ self.con.text_factory = str
+		#~ data = txt
+		data = buffer(zlib.compress(txt))
+		self.update("insert into replays values(?,?)", (i,data) )
 		
 	def add_game( self, i, map, turns, draws, players ):
 		self.update("insert into games values(?,?,?,?,?,?)", (i,players,self.now(),map,turns,draws))

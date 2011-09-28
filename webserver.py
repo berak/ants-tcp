@@ -4,14 +4,13 @@ import re
 import threading
 import logging
 import json
-import zlib
 import random
 import time
 import SimpleHTTPServer
-import tcpserver
 import socket
 
 import game_db
+from tcpserver import load_map_info
 
 # create console handler and set level to debug
 ch = logging.StreamHandler()
@@ -82,7 +81,6 @@ table_lines = 100
 class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
         self.opts = None
-        self.maps = None
 
         ## anything static gets cached on startup here.
         self.cache = {}
@@ -91,6 +89,9 @@ class AntsHttpServer(HTTPServer):
         self.cache_dir("js")
         self.cache_dir("maps")
         self.cache_dir("data/img")
+        
+        self.maps = load_map_info()
+        self.db = game_db.GameDB()
         
         HTTPServer.__init__(self, *args)
 
@@ -168,7 +169,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_visualizer(self, match):
         try:
             junk,gid = match.group(0).split('.')
-            replaydata = self.server.db.get_replay(gid)[0][0]
+            replaydata = self.server.db.get_replay(gid)
         except Exception, e:
             self.send_error(500, '%s' % (e,))
             return
@@ -427,8 +428,6 @@ def main():
 
     web = AntsHttpServer(('', web_port), AntsHttpHandler)
     web.opts = opts
-    web.maps = tcpserver.load_map_info()
-    web.db = game_db.GameDB()
     web.serve_forever()
 
 if __name__ == "__main__":

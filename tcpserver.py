@@ -7,7 +7,6 @@ import sys
 import os
 import logging
 import json
-import zlib
 import random
 import threading
 import trueskill
@@ -236,7 +235,6 @@ class TcpGame(threading.Thread):
         
         # save to db
         self.db = game_db.GameDB()
-        #~ data = zlib.compress(json.dumps(game_result))
         data = json.dumps(game_result)
         self.db.add_replay( self.id, data )
         
