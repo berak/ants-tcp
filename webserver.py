@@ -83,23 +83,29 @@ class AntsHttpServer(HTTPServer):
     def __init__(self, *args):
         self.opts = None
         self.maps = None
+
+        ## anything static gets cached on startup here.
         self.cache = {}
         self.cache_file("/favicon.ico","favicon.ico")
         self.cache_file("/tcpclient.py", "clients/tcpclient.py")
         self.cache_dir("js")
+        self.cache_dir("maps")
         self.cache_dir("data/img")
-        HTTPServer.__init__(self, *args)
         
+        HTTPServer.__init__(self, *args)
+
+
     def cache_file(self,fname,fpath):
         try:
             f = open(fpath,"rb")
-            output = f.read()
+            data = f.read()
             f.close()
             log.info("added static %s to cache." % fname)
-            self.cache[fname] = output
+            self.cache[fname] = data
         except Exception, e:
             log.error("caching %s failed. %s" % (fname,e))
-        
+
+
     def cache_dir(self,dir):
         for root,dirs,filenames in os.walk(dir):
             for filename in filenames:
@@ -162,11 +168,6 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_visualizer(self, match):
         try:
             junk,gid = match.group(0).split('.')
-            #~ rep_file = os.getcwd() + "/games/" + gid + ".replay"
-            #~ f = open(rep_file)
-            #~ replaydata = f.read()
-            #~ f.close()
-            #~ replaydata = zlib.decompress(self.server.db.get_replay(gid)[0][0])
             replaydata = self.server.db.get_replay(gid)[0][0]
         except Exception, e:
             self.send_error(500, '%s' % (e,))
@@ -326,10 +327,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_map( self, match ):      
         try:
             mapname = match.group(0).split('/')[2]
-            fname = os.getcwd() + "/maps/" + mapname 
-            f = open(fname,"rb")
-            m = f.read()
-            f.close()
+            m = self.server.cache["/maps/"+mapname]
         except:
             self.send_error(404, 'Map Not Found: %s' % self.path)
             return
