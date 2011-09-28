@@ -1,9 +1,14 @@
-# A minimal SQLite shell for experiments
+# A minimal SQLite shell
 #
-# update players set skill=0.0, mu=50.0, sigma=13.3 ;
+# ## reset the player ranks:
+# update players set skill=0.0, mu=50.0, sigma=13.3, rank=1000 ;
+#
+# ## retrieve a replay:
+# select json from replays where id=13 ;
 #
 
 import sqlite3
+import zlib
 
 con = sqlite3.connect("antsdb.sqlite3")
 con.isolation_level = None
@@ -23,9 +28,12 @@ while True:
         try:
             buffer = buffer.strip()
             cur.execute(buffer)
-
-            if buffer.lstrip().upper().startswith("SELECT"):
-                print cur.fetchall()
+            cmd = buffer.lstrip().upper()
+            if cmd.startswith("SELECT"):
+                if cmd.find("REPLAYS")>-1:
+                    print zlib.decompress(cur.fetchall()[0][0])
+                else:                
+                    print cur.fetchall()
         except sqlite3.Error, e:
             print "An error occurred:", e.args[0]
         buffer = ""

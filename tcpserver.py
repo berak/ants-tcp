@@ -528,7 +528,6 @@ def main():
         
         ## non-ants related tcp opts
         'trueskill': 'jskills',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
-        'db_max_games': 1000,	# how many game_infos should be kept in memory
         'multi_games': 'True',  # allow users to play multiple games at the same time
                                 # if set to False, players will have to wait until their latest game ended
     }

@@ -46,6 +46,7 @@ def tcp(host, port, bot_command, user, password, options):
        
     # Start up the network connection
     sock = socket(AF_INET, SOCK_STREAM)
+    sock.settimeout(240)
     sock.connect((host, port))
     if sock:
         sys.stderr.write("\n\nconnected to %s:%d as %s\n" % (host,port,user))
@@ -71,7 +72,10 @@ def tcp(host, port, bot_command, user, password, options):
         # get input, send it to bot
         bot_input = ""
         while sock:
-            line = readline(sock)
+            try:
+                line = readline(sock)
+            except: return
+                
             if not line: 
                 if end_reached:
                     sock.close()

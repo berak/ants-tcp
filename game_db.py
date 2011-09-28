@@ -12,7 +12,9 @@ class GameDB():
 		self.recreate()
 		
 	def __del__( self ):
-		self.con.close()
+		try:
+			self.con.close()
+		except: pass
 		
 	def recreate(self):
 		cur = self.con.cursor()		
