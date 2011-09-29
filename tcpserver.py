@@ -253,6 +253,7 @@ class TcpGame(threading.Thread):
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
+        ## this should go out
         # update rankings
         for i, p in enumerate(db.retrieve("select name from players order by skill desc",())):
             db.update_player_rank( p[0], i+1 )
