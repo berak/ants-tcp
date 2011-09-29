@@ -7,8 +7,11 @@ from fractions import Fraction
 import operator
 import string
 from game import Game
-from sys import maxint
 from copy import deepcopy
+try:
+    from sys import maxint
+except ImportError:
+    from sys import maxsize as maxint
 
 ANTS = 0
 DEAD = -1
@@ -147,7 +150,7 @@ class Ants(Game):
 
         # used to give a different ordering of players to each player
         #   initialized to ensure that each player thinks they are player 0
-        self.switch = [[None]*self.num_players + range(-5,0) for i in range(self.num_players)]
+        self.switch = [[None]*self.num_players + list(range(-5,0)) for i in range(self.num_players)]
         for i in range(self.num_players):
             self.switch[i][i] = 0
         # used to track water and land already reveal to player
@@ -633,7 +636,7 @@ class Ants(Game):
               then that food disappears.
         """
         # gather food
-        for f_loc in self.current_food.keys():
+        for f_loc in list(self.current_food.keys()):
             # find the owners of all the ants near the food
             nearby_players = set(
                 ant.owner for ant in self.nearby_ants(f_loc, self.spawnradius)
@@ -1081,7 +1084,7 @@ class Ants(Game):
     def place_food(self):
         """ Place food in scheduled locations if they are free
         """
-        for loc in self.pending_food.keys():
+        for loc in list(self.pending_food.keys()):
             if self.map[loc[0]][loc[1]] == LAND:
                 self.add_food(loc)
                 self.pending_food[loc] -= 1
@@ -1339,15 +1342,16 @@ class Ants(Game):
             return True
               
         # check if not ending a game earlier makes any difference
-        probable_winner = list(set(list(self.remaining_players())) & set(self.remaining_hills()))
-        if len(probable_winner) <= 1:
-            probable_score = self.score
-            probable_score[probable_winner[0]] += sum([HILL_POINTS for hill in self.hills.values()
-                                                       if hill.killed_by == None
-                                                       and hill.owner != probable_winner[0]])            
-            # entering extended player period
-            self.probable_rank = [sorted(set(probable_score), reverse=True).index(x) for x in probable_score]
-            self.probably_turn = self.turn
+        if self.probably_turn is None:
+            probable_winner = list(set(list(self.remaining_players())) & set(self.remaining_hills()))
+            if len(probable_winner) <= 1:
+                probable_score = self.score
+                probable_score[probable_winner[0]] += sum([HILL_POINTS for hill in self.hills.values()
+                                                           if hill.killed_by == None
+                                                           and hill.owner != probable_winner[0]])            
+                # entering extended player period
+                self.probable_rank = [sorted(probable_score, reverse=True).index(x) for x in probable_score]
+                self.probably_turn = self.turn
             
         return False
 
@@ -1373,11 +1377,6 @@ class Ants(Game):
                                            if hill.killed_by == None
                                            and hill.owner != players[0]])
             self.score[players[0]] += self.bonus[players[0]]
-
-        # record score in score history
-        # update last score to include bonus
-        for i, s in enumerate(self.score):
-            self.score_history[i][-1] = s
 
         self.calc_significant_turns()
         
@@ -1412,10 +1411,24 @@ class Ants(Game):
         for i, s in enumerate(self.score):
             if self.is_alive(i):
                 self.score_history[i].append(s)
+            elif s != self.score_history[i][-1]:
+                # the score has changed, probably due to a dead bot losing a hill
+                # increase the history length to the proper amount
+                last_score = self.score_history[i][-1]
+                score_len = len(self.score_history[i])
+                self.score_history[i].extend([last_score]*(self.turn-score_len))
+                self.score_history[i].append(s)
 
         # record hive_food in hive_history
         for i, f in enumerate(self.hive_food):
             if self.is_alive(i):
+                self.hive_history[i].append(f)
+            elif f != self.hive_history[i][-1]:
+                # the hive has changed, probably due to a dead bot gathering food
+                # increase the history length to the proper amount
+                last_hive = self.hive_history[i][-1]
+                hive_len = len(self.hive_history[i])
+                self.hive_history[i].extend([last_hive]*(self.turn-hive_len))
                 self.hive_history[i].append(f)
 
         # now that all the ants have moved we can update the vision
@@ -1443,7 +1456,7 @@ class Ants(Game):
         self.calc_significant_turns()
 
     def calc_significant_turns(self):
-        ranking_bots = [sorted(set(self.score), reverse=True).index(x) for x in self.score]
+        ranking_bots = [sorted(self.score, reverse=True).index(x) for x in self.score]
         if self.ranking_bots != ranking_bots:
             self.ranking_turn = self.turn
         self.ranking_bots = ranking_bots
@@ -1728,7 +1741,7 @@ def test_symmetry():
     a = Ants(options)
     ors = a.get_map_symmetry()
     for o_count, ant_aims in enumerate(ors):
-        print '=== orientation {0} '.format(o_count) + '=' * 30
+        sys.stdout.write('=== orientation {0} \n'.format(o_count) + '=' * 30)
         fix = []
         lines = ['' for _ in range(a.height)]
         for loc, aim, enemy_map in ant_aims:
@@ -1736,15 +1749,12 @@ def test_symmetry():
             fix.append(((row, col), a.map[row][col]))
             a.map[row][col] = FOOD
         for loc, aim, enemy_map in ant_aims:
-            print aim, enemy_map, loc
+            sys.stdout.write('{0} {1} {2}'.format(aim, enemy_map, loc))
             for row in range(a.height):
                 lines[row] += ' '
                 for col in range(a.width):
                     row1, col1 = a.destination(loc, a.offset_aim((row, col), aim))
                     lines[row] += MAP_RENDER[a.map[row1][col1]]
-        #for line in lines:
-        #    print line
-        #print
         # write test file
         if len(sys.argv) > 2:
             test_map_name = map_file_name + ''.join([str(aim) for _, aim, __ in ant_aims]) + '.replay'
@@ -1760,5 +1770,6 @@ def test_symmetry():
             visualizer.visualize_locally.launch(test_map_name)
             for (row, col), ilk in reversed(fix):
                 a.map[row][col] = ilk
+
 if __name__ == '__main__':
     test_symmetry()

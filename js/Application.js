@@ -557,6 +557,7 @@ Visualizer.prototype.tryStart = function() {
 	// XmlHttpRequest callback
 	if (this.state.replay) {
 		if (!this.main.ctx) return;
+		if (this.imgMgr.pending !== 0) return;
 		// colorize ant hill
 		colors = [];
 		for (i = 0; i < this.state.replay.players; i++) {
@@ -1044,7 +1045,8 @@ Visualizer.prototype.setAntLabels = function(mode) {
 	this.state.config['label'] = mode;
 	if (recap) {
 		this.updatePlayerButtonText();
-		this.main.ctx.clearRect(0, 0, this.main.canvas.width, this.main.canvas.height);
+		this.main.ctx.fillStyle = '#fff';
+		this.main.ctx.fillRect(0, 0, this.main.canvas.width, this.main.canvas.height);
 		this.resize(true);
 	}
 };
@@ -1364,7 +1366,7 @@ Visualizer.prototype.mousePressed = function() {
 			return;
 		}
 		this.mouseMoved(this.mouseX, this.mouseY);
-	} else {
+	} else if (this.state.options['decorated']) {
 		// handle game/player links if in non-interactive mode
 		this.btnMgr.mouseDown();
 	}

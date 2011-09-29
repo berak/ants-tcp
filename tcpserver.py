@@ -234,28 +234,28 @@ class TcpGame(threading.Thread):
         
         
         # save to db
-        self.db = game_db.GameDB()
+        db = game_db.GameDB()
         data = json.dumps(game_result)
-        self.db.add_replay( self.id, data )
+        db.add_replay( self.id, data )
         
         plr = {}
         for i,p in enumerate(self.players):
             plr[p] = (scores[i], states[i])
-            self.db.update("insert into gameindex values(?,?,?)",(None,p,self.id))
-        self.db.add_game( self.id, self.map_name, self.ants.turn, draws,json.dumps(plr) )
+            db.update("insert into gameindex values(?,?,?)",(None,p,self.id))
+        db.add_game( self.id, self.map_name, self.ants.turn, draws,json.dumps(plr) )
                 
         # update trueskill
         if sum(ranks) >= len(ranks)-1:
             if self.opts['trueskill'] == 'jskills':
-                self.calk_ranks_js( self.players, ranks )
+                self.calk_ranks_js( self.players, ranks, db )
             else : # default
-                self.calc_ranks_py( self.players, ranks )
+                self.calc_ranks_py( self.players, ranks, db )
         else:
             log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
         # update rankings
-        for i, p in enumerate(self.db.retrieve("select name from players order by skill desc",())):
-            self.db.update_player_rank( p[0], i+1 )
+        for i, p in enumerate(db.retrieve("select name from players order by skill desc",())):
+            db.update_player_rank( p[0], i+1 )
 
 
         # dbg display
@@ -271,7 +271,7 @@ class TcpGame(threading.Thread):
         
         
    
-    def calc_ranks_py( self, players, ranks ):
+    def calc_ranks_py( self, players, ranks, db ):
         class TrueSkillPlayer(object):
             def __init__(self, name, skill, rank):
                 self.name = name
@@ -281,7 +281,7 @@ class TcpGame(threading.Thread):
 
         ts_players = []
         for i, p in enumerate(players):
-            pdata = self.db.get_player((p,))
+            pdata = db.get_player((p,))
             ts_players.append( TrueSkillPlayer(i, (pdata[0][6],pdata[0][7]), ranks[i] ) )
         
         try:
@@ -294,22 +294,21 @@ class TcpGame(threading.Thread):
             mu    = ts_players[i].skill[0]
             sigma = ts_players[i].skill[1]
             skill = mu - sigma * 3
-            self.db.update_player_skill(p, skill, mu,sigma ); 
+            db.update_player_skill(p, skill, mu,sigma ); 
             
 
-    def calk_ranks_js( self, players, ranks ):
+    def calk_ranks_js( self, players, ranks, db ):
         ## java needs ';' as separator for win23, ':' for nix&mac
         sep = ':'
         if os.name == 'nt':
             sep=';'
-        #~ classpath = "jskills/JSkills_0.9.0.jar"+self.opts['cp_separator']+"jskills"
         classpath = "jskills/JSkills_0.9.0.jar"+sep+"jskills"
         tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 
         lines = []
         for i,p in enumerate(players):
-            pdata = self.db.get_player((p,))
+            pdata = db.get_player((p,))
             lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata[0][6], pdata[0][7]))
         
         for i,p in enumerate(players):
@@ -335,7 +334,7 @@ class TcpGame(threading.Thread):
             mu    = float(result[1].replace(",","."))
             sigma = float(result[2].replace(",","."))
             skill = mu -sigma * 3
-            self.db.update_player_skill( p, skill, mu, sigma )
+            db.update_player_skill( p, skill, mu, sigma )
 
 
 
