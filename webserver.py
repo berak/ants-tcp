@@ -84,7 +84,7 @@ class AntsHttpServer(HTTPServer):
 
         ## anything static gets cached on startup here.
         self.cache = {}
-        self.cache_file("/favicon.ico","favicon.ico")
+        #~ self.cache_file("/favicon.ico","favicon.ico")
         self.cache_file("/tcpclient.py", "clients/tcpclient.py")
         self.cache_dir("js")
         self.cache_dir("maps")
@@ -134,7 +134,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_head()
         
         head = """<html><head>
-        <link rel="icon" href='/favicon.ico'>
+        <!--link rel="icon" href='/favicon.ico'-->
         <title>"""  + title + """</title>
         <style>"""  + style + """</style>"""
         if str(self.server.opts['sort'])=='True':

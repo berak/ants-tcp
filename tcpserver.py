@@ -209,7 +209,9 @@ class TcpGame(threading.Thread):
         except: # keyerror
             log.error("broken game %d: %s" % (self.id,game_result) )
             return
-            
+        if self.ants.turn < 1:
+            log.error("broken game %d (0 turns)" % (self.id) )
+            return
         scores = game_result["score"]
         ranks  = game_result["rank"]
 
@@ -225,13 +227,7 @@ class TcpGame(threading.Thread):
         game_result['game_id'] = self.id
         game_result['playernames'] = []
         for i,p in enumerate(self.players):
-            game_result['playernames'].append(p)
-        #~ rep_name = "games/"+ str(self.id)+".replay"
-        
-        #~ f = open( rep_name, 'w' )
-        #~ json.dump(game_result,f)
-        #~ f.close()
-        
+            game_result['playernames'].append(p)        
         
         # save to db
         db = game_db.GameDB()
@@ -245,19 +241,19 @@ class TcpGame(threading.Thread):
         db.add_game( self.id, self.map_name, self.ants.turn, draws,json.dumps(plr) )
                 
         # update trueskill
-        if sum(ranks) >= len(ranks)-1:
-            if self.opts['trueskill'] == 'jskills':
-                self.calk_ranks_js( self.players, ranks, db )
-            else : # default
-                self.calc_ranks_py( self.players, ranks, db )
-        else:
-            log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
+        #~ if sum(ranks) >= len(ranks)-1:
+        if self.opts['trueskill'] == 'jskills':
+            self.calk_ranks_js( self.players, ranks, db )
+        else : # default
+            self.calc_ranks_py( self.players, ranks, db )
+        #~ else:
+            #~ log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
         ## this should go out
         # update rankings
         for i, p in enumerate(db.retrieve("select name from players order by skill desc",())):
             db.update_player_rank( p[0], i+1 )
-
+        db.con.commit()
 
         # dbg display
         ds = time() - starttime
@@ -303,22 +299,34 @@ class TcpGame(threading.Thread):
         sep = ':'
         if os.name == 'nt':
             sep=';'
-        classpath = "jskills/JSkills_0.9.0.jar"+sep+"jskills"
-        tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-                
-        lines = []
-        for i,p in enumerate(players):
-            pdata = db.get_player((p,))
-            lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata[0][6], pdata[0][7]))
-        
-        for i,p in enumerate(players):
-            tsupdater.stdin.write(lines[i])
-        
-        tsupdater.stdin.write("C\n")
-        tsupdater.stdin.flush()
-        tsupdater.wait()
-        
+        try:
+            classpath = "jskills/JSkills_0.9.0.jar"+sep+"jskills"
+            tsupdater = subprocess.Popen(["java", "-cp", classpath, "TSUpdate"],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            
+            lines = []
+            for i,p in enumerate(players):
+                pdata = db.get_player((p,))
+                lines.append("P %s %d %f %f\n" % (p, ranks[i], pdata[0][6], pdata[0][7]))
+            
+            for i,p in enumerate(players):
+                tsupdater.stdin.write(lines[i])
+            
+            tsupdater.stdin.write("C\n")
+            tsupdater.stdin.flush()
+            tsupdater.wait()
+        except Exception,e:
+            log.error( str( e.split('\n')[0]) )
+            return
+        try:
+            result =  tsupdater.stderr.readline().split() 
+            print result
+            if result.find("Maximum iterations")>0:
+                log.error( "jskills:  Maximum iterations reached")
+                return
+        except Exception,e:
+            log.error( str(e) )
+            
         for i,p in enumerate(players):
             # this might seem like a fragile way to handle the output of TSUpdate
             # but it is meant as a double check that we are getting good and
@@ -436,7 +444,7 @@ class TCPGameServer(object):
         # have to create the game before collecting respective num of players:
         self.db = game_db.GameDB()
         self.latest = int(self.db.retrieve("select count(*) from games",())[0][0])
-        self.next_game = self.create_game()
+        next_game = self.create_game()
         t = 0
         while self.server:
             try:
@@ -470,28 +478,25 @@ class TCPGameServer(object):
                         self.reject_client(client, "%s is already running a game." % name, False )
                         continue
                     # already in next_game ?
-                    if name in self.next_game.players:                        
-                        self.reject_client(client, '%s is already queued for game %d' % (name, self.next_game.id), False )
+                    if name in next_game.players:                        
+                        self.reject_client(client, '%s is already queued for game %d' % (name, next_game.id), False )
                         continue
                         
                     # start game if enough players joined
-                    avail = self.addplayer( self.next_game, name, password, client )
+                    avail = self.addplayer( next_game, name, password, client )
                     if avail==-1:
                         continue
-                    log.info('user %s connected to game %d (%d/%d)' % (name,self.next_game.id,avail,self.next_game.nplayers))
-                    if avail == self.next_game.nplayers:
-                        game = self.next_game
-                        game.start()
-                        game = None
-
-                        self.next_game = self.create_game()
+                    log.info('user %s connected to game %d (%d/%d)' % (name,next_game.id,avail,next_game.nplayers))
+                    if avail == next_game.nplayers:
+                        next_game.start()
+                        next_game = self.create_game()
                         
             # remove bots from next_game that died between connect and the start of the game
-            for i, b in enumerate(self.next_game.bots):
+            for i, b in enumerate(next_game.bots):
                 if (not b.sock) or (not b.is_alive):
-                    log.info( "removed %s from next_game:%d" % (b.name, self.next_game.id) )
-                    del( self.next_game.bots[i] )
-                    del( self.next_game.players[i] )
+                    log.info( "removed %s from next_game:%d" % (b.name, next_game.id) )
+                    del( next_game.bots[i] )
+                    del( next_game.players[i] )
                     
             if t % 100 == 1:
                 log.info("%d games, %d players online." % (len(book.games),len(book.players)) )

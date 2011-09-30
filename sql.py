@@ -1,7 +1,7 @@
 # A minimal SQLite shell
 #
 # ## reset the player ranks:
-# update players set skill=0.0, mu=50.0, sigma=13.3, rank=1000 ;
+# update players set skill=0.0, mu=50.0, sigma=13.3, rank=1000, ngames=0;
 #
 # ## retrieve a replay:
 # select json from replays where id=13 ;

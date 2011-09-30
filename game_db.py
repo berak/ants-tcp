@@ -19,6 +19,7 @@ class GameDB():
 	def recreate(self):
 		cur = self.con.cursor()		
 		try:
+			#~ cur.execute("create table opts ( turns integer default 1000, loadtime integer default 5000, turntime integer default 5000, trueskill text default 'py' );")
 			cur.execute("create table gameindex(id integer primary key autoincrement, player text, gameid integer)")
 			cur.execute("create table games(id integer, players text, map text, datum date, turns integer default 0, draws integer default 0)")
 			cur.execute("create table players(id integer primary key autoincrement, name text unique, password text, lastseen date, rank integer default 1000, skill real default 0.0, mu real default 50.0, sigma real default 13.3,ngames integer default 0)")
@@ -30,9 +31,12 @@ class GameDB():
 	def now(self):
 		return datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") #asctime()
 
-	def update( self, sql, tup=() ):
+	def update_defered( self, sql, tup=() ):
 		cur = self.con.cursor()		
 		cur.execute(sql,tup)
+		
+	def update( self, sql, tup=() ):
+		self.update_defered(sql,tup)
 		self.con.commit()
 		
 	def retrieve( self, sql, tup=() ):
@@ -78,10 +82,11 @@ class GameDB():
 		self.update("insert into players values(?,?,?,?,?,?,?,?,?)", (None,name,password,self.now(),1000,0.0,50.0,50.0/3.0,0))
 		
 	def update_player_skill( self, name, skill, mu, sig ):
-		self.update("update players set ngames=ngames+1,lastseen=?,skill=?,mu=?,sigma=? where name=?", (self.now(),skill,mu,sig,name))
-		
+		self.update_defered("update players set ngames=ngames+1,lastseen=?,skill=?,mu=?,sigma=? where name=?", (self.now(),skill,mu,sig,name))
+	
+	## needs a final commit() 
 	def update_player_rank( self, name, rank ):
-		self.update("update players set rank=? where name=?", (rank,name))
+		self.update_defered("update players set rank=? where name=?", (rank,name))
 		
 	def get_player( self, names ):
 		sql = "select * from players where name=?"
@@ -89,3 +94,9 @@ class GameDB():
 			sql += " or name=?" 
 		return self.retrieve(sql, names )
 		
+	#~ def get_opts( self, opts ):
+		#~ r = self.retrieve( "select * from opts" )
+		#~ if r and len(r)==1:
+			#~ for i,k in enumerate(r[0].keys()):
+				#~ opts[ k ] = r[0][i]
+				
