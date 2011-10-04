@@ -624,7 +624,7 @@ CanvasElementAntsMap.prototype.collectAntsAroundCursor = function() {
  * and finally the fog of war.
  */
 CanvasElementAntsMap.prototype.draw = function() {
-	var halfScale, drawList, n, kf, w, dx, dy, d, fontSize, label, caption, order, survives;
+	var halfScale, drawList, n, kf, w, dx, dy, d, fontSize, label, caption, order, razed;
 	var target, rows, cols, x1, y1, x2, y2, rowPixels, colPixels, ar, sr, r, hill, hills, i;
 	var hash = undefined;
 
@@ -667,8 +667,8 @@ CanvasElementAntsMap.prototype.draw = function() {
 							}
 						}, []);
 			}
-			survives = this.state.replay.duration !== hills[3];
-			if (this.turn >= hill[3] - 30 && survives || this.turn <= 10) {
+			razed = hill[3] <= this.state.replay.duration;
+			if (razed && this.turn >= hill[3] - 30 || this.turn <= 10) {
 				// draw proximity indicator just before the hill is captured
 				r = this.scale * Math.max(3, hill[3] - this.time - 17);
 				sr = this.scale * (3 + this.time);
@@ -885,6 +885,7 @@ function CanvasElementShiftedMap(state, antsMap) {
 	this.dependsOn(antsMap);
 	this.shiftX = 0;
 	this.shiftY = 0;
+	this.fade = undefined;
 }
 CanvasElementShiftedMap.extend(CanvasElement);
 
@@ -896,10 +897,12 @@ CanvasElementShiftedMap.extend(CanvasElement);
  * @returns {Boolean} true, if the internal state has changed
  */
 CanvasElementShiftedMap.prototype.checkState = function() {
-	if (this.state.shiftX !== this.shiftX || this.state.shiftY !== this.shiftY) {
+	if (this.state.shiftX !== this.shiftX || this.state.shiftY !== this.shiftY
+			|| this.state.fade !== this.fade) {
 		this.invalid = true;
 		this.shiftX = this.state.shiftX;
 		this.shiftY = this.state.shiftY;
+		this.fade = this.state.fade;
 	}
 };
 
@@ -948,6 +951,11 @@ CanvasElementShiftedMap.prototype.draw = function() {
 		this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
 		this.ctx.fillRect(0, 0, this.w, my);
 		this.ctx.fillRect(0, dy, this.w, this.h - dy);
+	}
+	// fade out
+	if (this.fade) {
+		this.ctx.fillStyle = this.fade;
+		this.ctx.fillRect(0, 0, this.w, this.h);
 	}
 };
 

@@ -53,16 +53,16 @@ class Ants(Game):
         seed(self.engine_seed)
         self.food_rate = options.get('food_rate', (2,8)) # total food
         if type(self.food_rate) in (list, tuple):
-            self.food_rate = randrange(*self.food_rate)
+            self.food_rate = randrange(self.food_rate[0], self.food_rate[1]+1)
         self.food_turn = options.get('food_turn', (12,30)) # per turn
         if type(self.food_turn) in (list, tuple):
-            self.food_turn = randrange(*self.food_turn)
+            self.food_turn = randrange(self.food_turn[0], self.food_turn[1]+1)
         self.food_start = options.get('food_start', (75,175)) # per land area
         if type(self.food_start) in (list, tuple):
-            self.food_start = randrange(*self.food_start)
+            self.food_start = randrange(self.food_start[0], self.food_start[1]+1)
         self.food_visible = options.get('food_visible', (1,3)) # in starting loc
         if type(self.food_visible) in (list, tuple):
-            self.food_visible = randrange(*self.food_visible)
+            self.food_visible = randrange(self.food_visible[0], self.food_visible[1]+1)
         self.food_extra = Fraction(0,1)
 
         self.cutoff_percent = options.get('cutoff_percent', 0.90)
@@ -138,7 +138,7 @@ class Ants(Game):
 
         if self.scenario:
             # initialize ants
-            for player, player_ants in enumerate(map_data['ants']):
+            for player, player_ants in map_data['ants'].items():
                 for ant_loc in player_ants:
                     self.add_initial_ant(ant_loc, player)
             # initialize food
@@ -189,7 +189,7 @@ class Ants(Game):
 
     def parse_map(self, map_text):
         """ Parse the map_text into a more friendly data structure """
-        players = []
+        ant_list = None
         hill_list = []
         hill_count = defaultdict(int)
         width = height = None
@@ -198,49 +198,55 @@ class Ants(Game):
         ants = defaultdict(list)
         hills = defaultdict(list)
         row = 0
+        score = None
+        hive = None
+        num_players = None
 
         for line in map_text.split('\n'):
-            line = line.strip().lower()
+            line = line.strip()
 
             # ignore blank lines and comments
             if not line or line[0] == '#':
                 continue
 
             key, value = line.split(' ', 1)
+            key = key.lower()
             if key == 'cols':
                 width = int(value)
             elif key == 'rows':
                 height = int(value)
+            elif key == 'players':
+                num_players = int(value)
+                if num_players < 2 or num_players > 10:
+                    raise Exception("map",
+                                    "player count must be between 2 and 10")
+            elif key == 'score':
+                score = list(map(int, value.split()))
+            elif key == 'hive':
+                hive = list(map(int, value.split()))
             elif key == 'm':
+                if ant_list is None:
+                    if num_players is None:
+                        raise Exception("map",
+                                        "players count expected before map lines")
+                    ant_list = [chr(97 + i) for i in range(num_players)]
+                    hill_list = list(map(str, range(num_players)))
+                    hill_ant = [chr(65 + i) for i in range(num_players)]
                 if len(value) != width:
                     raise Exception("map",
                                     "Incorrect number of cols in row %s. "
                                     "Got %s, expected %s."
                                     %(row, len(value), width))
                 for col, c in enumerate(value):
-                    # assign player ids in the order that we see them
-                    #  (so player 'a' won't necessarily be 0, and so on)
-                    # look for ants or hills or ants on hills
-                    if c in PLAYER_ANT:
-                        if c not in players:
-                            players.append(c)
-                            hill_list.append(PLAYER_HILL[PLAYER_ANT.index(c)])
-                            hill_count[players.index(c)] = 0
-                        ants[players.index(c)].append((row,col))
-                    elif c in PLAYER_HILL:
-                        if c not in hill_list:
-                            hill_list.append(c)
-                            players.append(PLAYER_ANT[PLAYER_HILL.index(c)])
+                    if c in ant_list:
+                        ants[ant_list.index(c)].append((row,col))
+                    elif c in hill_list:
                         hills[hill_list.index(c)].append((row,col))
                         hill_count[hill_list.index(c)] += 1
-                    elif c in HILL_ANT:
-                        c = PLAYER_ANT[HILL_ANT.index(c)]
-                        if c not in players:
-                            players.append(c)
-                            hill_list.append(PLAYER_HILL[PLAYER_ANT.index(c)])
-                        ants[players.index(c)].append((row,col))
-                        hills[players.index(c)].append((row,col))
-                        hill_count[players.index(c)] += 1
+                    elif c in hill_ant:
+                        ants[hill_ant.index(c)].append((row,col))
+                        hills[hill_ant.index(c)].append((row,col))
+                        hill_count[hill_ant.index(c)] += 1
                     elif c == MAP_OBJECT[FOOD]:
                         food.append((row,col))
                     elif c == MAP_OBJECT[WATER]:
@@ -250,21 +256,31 @@ class Ants(Game):
                                         "Invalid character in map: %s" % c)
                 row += 1
 
+        if score and len(score) != num_players:
+            raise Exception("map",
+                            "Incorrect score count.  Expected %s, got %s"
+                            % (num_players, len(score)))
+        if hive and len(hive) != num_players:
+            raise Exception("map",
+                            "Incorrect score count.  Expected %s, got %s"
+                            % (num_players, len(score)))
+
         if height != row:
             raise Exception("map",
                             "Incorrect number of rows.  Expected %s, got %s"
                             % (height, row))
 
         # look for ants without hills to invalidate map for a game
-        for hill, count in hill_count.items():
-            if count == 0:
-                raise Exception("map",
-                                "Player %s has no starting hills"
-                                % hill)
+        if not self.scenario:
+            for hill, count in hill_count.items():
+                if count == 0:
+                    raise Exception("map",
+                                    "Player %s has no starting hills"
+                                    % hill)
 
         return {
             'size':        (height, width),
-            'num_players': len(players),
+            'num_players': num_players,
             'hills':       hills,
             'ants':        ants,
             'food':        food,
@@ -722,6 +738,8 @@ class Ants(Game):
         hill.killed_by = killed_by
         self.score[killed_by] += HILL_POINTS
         self.score[hill.owner] += RAZE_POINTS
+        # reset cutoff_turns
+        self.cutoff_turns = 0
 
     def player_hills(self, player):
         """ Return the current hills belonging to the given player """
@@ -1384,8 +1402,11 @@ class Ants(Game):
         """ Called by engine at the start of the game """
         if self.do_food != self.do_food_none:
             self.game_started = True
-            starting_food = ((self.land_area // self.food_start)
-                             - self.food_visible * self.num_players)
+            if self.food_start:
+                starting_food = ((self.land_area // self.food_start)
+                                 - self.food_visible * self.num_players)
+            else:
+                starting_food = 0
             self.do_food_visible(self.food_visible * self.num_players)
             self.do_food(starting_food)
 

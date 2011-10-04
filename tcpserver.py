@@ -443,7 +443,7 @@ class TCPGameServer(object):
     def serve(self):
         # have to create the game before collecting respective num of players:
         self.db = game_db.GameDB()
-        self.latest = int(self.db.retrieve("select count(*) from games",())[0][0])
+        self.latest = int(self.db.retrieve("select id from games order by id desc limit 1;",())[0][0])
         next_game = self.create_game()
         t = 0
         while self.server:
