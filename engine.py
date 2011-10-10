@@ -307,7 +307,7 @@ def run_game(game, bots, options):
         error = traceback.format_exc()
         if verbose_log:
             verbose_log.write(traceback.format_exc())
-        error = str(e)
+        #error = str(e)
     finally:
         if end_wait:
             for bot in bots:
