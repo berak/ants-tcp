@@ -147,14 +147,11 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/tcpclient.py' title='get the python2.x client'> Client.py </a> &nbsp;&nbsp;
-        <a href='/tcpclient.py3' title='get the python3.x client'> Client.py3 </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/howto' title='help to connect'> HowTo </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/howto' title='get a client and connect to the game'> HowTo </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <br><p></b>
         """
         return head
-    
-    
+        
     def footer_sort(self, id):
         if str(self.server.opts['sort'])=='True':
             return """
@@ -377,7 +374,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += """
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Here's how to play a game on TCP...<br>
         <ol>
-        <li>Download a client from the above menu (one is for <a href='/tcpclient.py'> Python 2.x </a> the other for <a href='/tcpclient.py3'>  Python 3.x </a>)</li>
+        <li>Download a python client, there's a <b><a href='/tcpclient.py'> Python 2.x </a></b> or a <b><a href='/tcpclient.py3'>  Python 3.x </a></b> version</li>
         <li>Run:<b> python tcpclient.py %s 2081 "python MyBot.py" username password [num_rounds] </b></li>
         <li>Change the game runner to fit your bot.</li>
         <li>Change choose unique username and password pair.</li>
