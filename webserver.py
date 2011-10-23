@@ -86,6 +86,7 @@ class AntsHttpServer(HTTPServer):
         self.cache = {}
         #~ self.cache_file("/favicon.ico","favicon.ico")
         self.cache_file("/tcpclient.py", "clients/tcpclient.py")
+        self.cache_file("/tcpclient.py3", "clients/tcpclient.py3")
         self.cache_dir("js")
         self.cache_dir("maps")
         self.cache_dir("data/img")
@@ -130,14 +131,14 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_header('Content-type',type)
         self.end_headers()
         
-    def header(self, title):
+    def header(self, title, need_sort=True):
         self.send_head()
         
         head = """<html><head>
         <!--link rel="icon" href='/favicon.ico'-->
         <title>"""  + title + """</title>
         <style>"""  + style + """</style>"""
-        if str(self.server.opts['sort'])=='True':
+        if str(self.server.opts['sort'])=='True' and need_sort:
             head += """
                 <script type="text/javascript" src="/js/jquery-1.2.6.min.js"></script> 
                 <script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
@@ -146,7 +147,9 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <a href='/tcpclient.py' title='get the python client'> Client.py </a>
+        <a href='/tcpclient.py' title='get the python2.x client'> Client.py </a> &nbsp;&nbsp;
+        <a href='/tcpclient.py3' title='get the python3.x client'> Client.py3 </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='/howto' title='help to connect'> HowTo </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <br><p></b>
         """
         return head
@@ -349,7 +352,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 w = int(value)
         jsmap += "]\n"
         
-        html = self.header(mapname)
+        html = self.header(mapname, need_sort=False)
         html += "&nbsp;&nbsp;&nbsp;<canvas width="+str(s*w)+" height="+str(s*h)+" id='C'><p>\n<script>\n"+jsmap+"var square = " + str(s) + "\n"
         html +=""" 
             var colors = { '%':'#1e3f5d', '.':'#553322', 'a':'#4ca9c8', 'b':'#6a9a2a', 'c':'#8a2b44', 'd':'#ff5d00', 'e':'#4ca9c8', 'f':'#6a9a2a', 'g':'#8a2b44', 'h':'#ff5d00', '0':'#4ca9c8', '1':'#6a9a2a', '2':'#8a2b44', '3':'#ff5d00', '4':'#4ca9c8', '5':'#6a9a2a', '6':'#8a2b44', '7':'#ff5d00' }            
@@ -369,10 +372,27 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += "</body></html>"
         self.wfile.write(html)
             
+    def serve_howto(self, match):
+        html = self.header( "HowTo", need_sort=False )
+        html += """
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Here's how to play a game on TCP...<br>
+        <ol>
+        <li>Download a client from the above menu (one is for <a href='/tcpclient.py'> Python 2.x </a> the other for <a href='/tcpclient.py3'>  Python 3.x </a>)</li>
+        <li>Run:<b> python tcpclient.py %s 2081 "python MyBot.py" username password [num_rounds] </b></li>
+        <li>Change the game runner to fit your bot.</li>
+        <li>Change choose unique username and password pair.</li>
+        <li>See your rank in the ranking page.</li>
+        <li>Profit!</li>
+        </ol>""" % self.server.opts['host']
+        
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
+
             
     ## static files aer served from cache
     def serve_file(self, match):
-        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
+        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','py3':'application/python3','html':'text/html'}
         try:
             junk,end = match.group(0).split('.')
             mime_type = mime[end]
@@ -397,6 +417,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         for regex, func in (
                 ('^\/ranking/p([0-9]?)', self.serve_ranking),
                 ('^\/ranking', self.serve_ranking),
+                ('^\/howto', self.serve_howto),
                 ('^\/maps', self.serve_maps),
                 ('^\/map/(.*)', self.serve_map),
                 ('^\/player\/(.*)', self.serve_player),
@@ -422,7 +443,7 @@ def main():
         'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
 
         ## read only info
-        'host': socket.gethostname(),
+        'host': socket.gethostname(), # !! please change that to your actual hostname or ip visible from the outside !!
     }
 
 

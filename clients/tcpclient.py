@@ -169,8 +169,9 @@ def main():
     for i in range(rounds):
         tcp(host, port, botpath, pname, password, {})
         
-    # keep konsole window open (for debugging)
-    sys.stdin.read()
+    ## keep konsole window open (for debugging)
+    ## ok, all of them were clever enough to remove this line ;)
+    ## sys.stdin.read()
     
 if __name__ == "__main__":
     main()
