@@ -284,7 +284,7 @@ class TcpGame(threading.Thread):
         try:
             trueskill.AdjustPlayers(ts_players)
         except Exception, e:
-            log.error(e)
+            log.error("trueskill-py: " + e)
             return
         
         for i, p in enumerate(players):
@@ -316,7 +316,7 @@ class TcpGame(threading.Thread):
             tsupdater.stdin.flush()
             tsupdater.wait()
         except Exception,e:
-            log.error( str( e.split('\n')[0]) )
+            log.error( "ranks : " + str( e.split('\n')[0]) )
             return
         try:
             result =  tsupdater.stderr.readline().split() 
@@ -325,7 +325,8 @@ class TcpGame(threading.Thread):
                 log.error( "jskills:  Maximum iterations reached")
                 return
         except Exception,e:
-            log.error( str(e) )
+            pass
+            #log.error( "jskills result : " + str(e) )
             
         for i,p in enumerate(players):
             # this might seem like a fragile way to handle the output of TSUpdate
