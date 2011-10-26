@@ -129,14 +129,14 @@ DataType = {
  * @param {Boolean}
  *        debug If true, then partially corrupt replays are loaded instead of throwing an error.
  * @param {String}
- *        swapUser The user with this ID (usually a database index) in the replay will get the first
+ *        highlightUser The user with this ID (usually a database index) in the replay will get the first
  *        color in the player colors array.
  * @see Options#user
  * @see #addMissingMetaData
  * @see Ant
  */
-function Replay(replay, debug, swapUser) {
-	var i, k, player_scores, swapIndex, c, n, r, regex;
+function Replay(replay, debug, highlightUser) {
+	var i, k, player_scores, highlightPlayer, c, n, r, regex;
 	var format = 'json';
 	var storeslist = undefined;
 	/**
@@ -494,12 +494,12 @@ function Replay(replay, debug, swapUser) {
 		this.hasDuration = this.duration > 0 || this.meta['replaydata']['turns'] > 0;
 
 		// add missing meta data
-		swapIndex = undefined;
+		highlightPlayer = undefined;
 		if (this.meta['user_ids']) {
-			swapIndex = this.meta['user_ids'].indexOf(swapUser, 0);
-			if (swapIndex === -1) swapIndex = undefined;
+			highlightPlayer = this.meta['user_ids'].indexOf(highlightUser, 0);
+			if (highlightPlayer === -1) highlightPlayer = undefined;
 		}
-		this.addMissingMetaData(swapIndex);
+		this.addMissingMetaData(highlightPlayer);
 	}
 }
 
@@ -508,11 +508,11 @@ function Replay(replay, debug, swapUser) {
  * 
  * @private
  * @param {Number}
- *        swapIndex The index of a player who's default color should be exchanged with the first
+ *        highlightPlayer The index of a player who's default color should be exchanged with the first
  *        player's color. This is useful to identify a selected player by its color (the first one
  *        in the PĹAYER_COLORS array).
  */
-Replay.prototype.addMissingMetaData = function(swapIndex) {
+Replay.prototype.addMissingMetaData = function(highlightPlayer) {
 	var i;
 	if (!(this.meta['playernames'] instanceof Array)) {
 		if (this.meta['players'] instanceof Array) {
@@ -530,11 +530,21 @@ Replay.prototype.addMissingMetaData = function(swapIndex) {
 		this.meta['playerturns'] = new Array(this.players);
 	}
 	// setup player colors
-	var cl;
-	var COLOR_MAP = COLOR_MAPS[this.players];
+	var rank;
+    var rank_sorted;
 	if (this.meta['challenge_rank']) {
-        cl = this.meta['challenge_rank'].slice().sort(function (a, b) { return a - b; });
+        rank = this.meta['challenge_rank'].slice();
 	}
+	if (highlightPlayer !== undefined) {
+		var COLOR_MAP = COLOR_MAPS[this.players-1];
+        rank.splice(highlightPlayer, 1);
+	} else {
+		var COLOR_MAP = COLOR_MAPS[this.players];
+	}
+    if (rank) {
+        rank_sorted = rank.slice().sort(function (a, b) { return a - b; });
+    }
+    var adjust = 0;
 	for (i = 0; i < this.players; i++) {
 		if (!this.meta['playernames'][i]) {
 			this.meta['playernames'][i] = 'player ' + (i + 1);
@@ -544,27 +554,20 @@ Replay.prototype.addMissingMetaData = function(swapIndex) {
 		}
 		if (!(this.meta['playercolors'][i] instanceof Array)) {
             var color;
-            if (cl) {
-                var ci = cl.indexOf(this.meta['challenge_rank'][i]);
-                color = PLAYER_COLORS[COLOR_MAP[ci]];
-                cl[ci] = null;
-                
+            if (highlightPlayer !== undefined && i === highlightPlayer) {
+                color = PLAYER_COLORS[COLOR_MAPS[0]];
+                adjust = 1;
             } else {
-                color = PLAYER_COLORS[COLOR_MAP[i]];
-            }
-            if (swapIndex !== undefined && i == swapIndex) {
-                color = PLAYER_COLORS[COLOR_MAPS[0][0]];
+                if (rank) {
+                    var rank_i = rank_sorted.indexOf(rank[i - adjust]);
+                    color = PLAYER_COLORS[COLOR_MAP[rank_i]];
+                    rank_sorted[rank_i] = null;
+                    
+                } else {
+                    color = PLAYER_COLORS[COLOR_MAP[i]];
+                }
             }
             this.meta['playercolors'][i] = color = hsl_to_rgb(color);;
-            /*
-			if (swapIndex !== undefined && i == 0) {
-				this.meta['playercolors'][i] = PLAYER_COLORS[swapIndex];
-			} else if (swapIndex !== undefined && i == swapIndex) {
-				this.meta['playercolors'][i] = PLAYER_COLORS[0];
-			} else {
-				this.meta['playercolors'][i] = PLAYER_COLORS[i];
-			}
-			*/
 		}
 	}
 	this.htmlPlayerColors = new Array(this.players);
