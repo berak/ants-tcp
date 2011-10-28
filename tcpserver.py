@@ -527,10 +527,10 @@ def main():
         'spawnradius2': 1,
         'attack': 'focus',
         'food': 'symmetric',
-        'food_rate': (1,8), # total food
-        'food_turn': (12,30), # per turn
+        'food_rate': (5,11), # total food
+        'food_turn': (19,37), # per turn
         'food_start': (75,175), # per land area
-        'food_visible': (2,4), # in starting loc
+        'food_visible': (3,5), # in starting loc
         'cutoff_percent': 0.66,
         'cutoff_turn': 150,
         'kill_points': 2,
