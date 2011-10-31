@@ -201,6 +201,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             </body>
             </html>
             """
+        self.send_head()
         self.wfile.write(html)
 
 
