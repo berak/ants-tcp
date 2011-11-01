@@ -210,10 +210,13 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <thead><tr><th>Game </th><th>Players</th><th>Turns</th><th>Date</th><th>Map</th></tr></thead>"""
         
         
-    def game_line(self, g):
+    def game_line(self, g, player):
         html = "<tr><td width=10%><a href='/replay." + str(g[0]) + "' title='Run in Visualizer'> Replay " + str(g[0]) + "</a></td><td>"
         for key, value in sorted(json.loads(g[1]).iteritems(), key=lambda (k,v): (v,k), reverse=True):
-            html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"
+            if str(key)==player:
+                html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'><b>"+str(key)+"</b></a> (" + str(value[0]) + ") &nbsp;"
+            else:
+                html += "&nbsp;&nbsp;<a href='/player/" + str(key) + "' title='"+str(value[1])+"'>"+str(key)+"</a> (" + str(value[0]) + ") &nbsp;"            
         html += "</td><td>" + str(g[4]) + "</td>"
         html += "</td><td>" + str(g[2]) + "</td>"
         html += "<td><a href='/map/" + str(g[3]) + "' title='View the map'>" + str(g[3]) + "</a></td>"
@@ -268,7 +271,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             offset=table_lines * int(match.group(0)[2:])
             
         for g in self.server.db.get_games(offset,table_lines):
-            html += self.game_line(g)            
+            html += self.game_line(g, None)            
         html += "</tbody></table>"
         html += self.page_counter("/", self.server.db.num_games() )
         html += self.footer()
@@ -296,7 +299,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if len(toks)>3:
                 offset=table_lines * int(toks[3][1:])
         for g in self.server.db.get_games_for_player(offset, table_lines, player):
-            html += self.game_line(g)                
+            html += self.game_line(g, player)                
         html += "</tbody></table>"
         html += self.page_counter("/player/"+player+"/", self.server.db.num_games_for_player(player) )
         html += self.footer()
