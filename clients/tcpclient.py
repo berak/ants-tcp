@@ -59,12 +59,16 @@ def tcp(host, port, bot_command, user, password, options):
     
     # start bot
     try:
-        bot = subprocess.Popen(bot_command,
+        bot = subprocess.Popen(
+            bot_command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            cwd=".")
+            shell=True,
+            #~ cwd="."
+            )
     except:
-        print( 'your bot ('+str(bot_command)+') failed to start!' )
+        #~ print( 'your bot ('+str(bot_command)+') failed to start!' )
+        raise
         return;
 
     while sock:
@@ -165,13 +169,20 @@ def main():
     except:
         rounds = 1
 
-    
+    ##
+    ## helpless effort to stop the client gracefully, if you uncomment the lines below,
+    ## you can just delete the 'tcp_counter' file, to make it stop AFTER finishing the current game.
+    ##
+    #~ f = open("tcp_counter", "w")
+    #~ f.close()
     for i in range(rounds):
         tcp(host, port, botpath, pname, password, {})
+        #~ try:
+            #~ f=open("tcp_counter","r")
+        #~ except:
+            #~ print "user stopped me!"
+            #~ break
         
-    ## keep konsole window open (for debugging)
-    ## ok, all of them were clever enough to remove this line ;)
-    ## sys.stdin.read()
     
 if __name__ == "__main__":
     main()

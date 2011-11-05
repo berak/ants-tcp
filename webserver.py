@@ -39,6 +39,13 @@ style = """
         font-size:9pt;
         color:#111;
     }
+    iframe,textarea,input,button,select,option,scrollbar,input[type="file"]{
+        font-family: Arial, "MS Trebuchet", sans-serif;
+        font-size: 8tp;
+        border-color:#777;
+        border-style:solid;
+        border-width:1
+    }
     hr {
         color:#111;
         background-color:#555;    
@@ -143,12 +150,15 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 <script type="text/javascript" src="/js/jquery-1.2.6.min.js"></script> 
                 <script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
                 """
-        head += """</head><body><b> &nbsp;&nbsp;&nbsp;
+        head += """</head><body><form action='/search'> &nbsp;&nbsp;&nbsp;
+        <b>
         <a href='/' name=top> Games </a> &nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/ranking'> Rankings </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/maps'> Maps </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <a href='/howto' title='get a client and connect to the game'> HowTo </a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        <br><p></b>
+        </b>
+        <input name=name title='search for player'></form>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <br>
         """
         return head
         
@@ -277,6 +287,19 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(html)
         
         
+    def serve_search(self, match):
+        query = match.group(0).split("?")[1]
+        player = query.split("=")[1]
+        res = self.server.db.retrieve("select * from players where name >= ? and name <= ?", (player, (player +u'\ufffd')))
+        html = self.header( "search results for '" + player + "'", need_sort=False )
+        html += "<ol>"
+        for i,z in enumerate(res):
+            html += "<li><a href='/player/"+z[1]+"'>" + z[1] + "</a></li><br>"
+        html += "</ol>"
+        html += self.footer()
+        html += "</body></html>"
+        self.wfile.write(html)
+
     def serve_player(self, match):
         player = match.group(0).split("/")[2]
         res = self.server.db.get_player((player,))
@@ -375,7 +398,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         html += """
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Here's how to play a game on TCP...<br>
         <ol>
-        <li>Download a python client, there's a <b><a href='/tcpclient.py'> Python 2.x </a></b> or a <b><a href='/tcpclient.py3'>  Python 3.x </a></b> version</li>
+        <li>Download the <b><a href='/tcpclient.py'> Python client </a></b>,it proxies input/output of your bot to game manager on server</li>
         <li>Run:<b> python tcpclient.py %s 2081 "python MyBot.py" username password [num_rounds] </b></li>
         <li>Change the game runner to fit your bot.</li>
         <li>Change choose unique username and password pair.</li>
@@ -418,6 +441,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 ('^\/howto', self.serve_howto),
                 ('^\/maps', self.serve_maps),
                 ('^\/map/(.*)', self.serve_map),
+                ('^\/search(.*)', self.serve_search),
                 ('^\/player\/(.*)', self.serve_player),
                 ('^\/replay\.([0-9]+)', self.serve_visualizer),
                 ('^\/p([0-9]?)', self.serve_main),
