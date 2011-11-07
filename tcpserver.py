@@ -191,8 +191,6 @@ class TcpGame(threading.Thread):
         try:
             book.games.remove(self.id)
         except: pass            
-        for b in self.bots:
-            b.kill()
             
 
     def run(self):
@@ -203,6 +201,10 @@ class TcpGame(threading.Thread):
         
         # finally, THE GAME !
         game_result = run_game(self.ants, self.bots, self.opts)
+
+        ## don't need the client threads any more, so we can kill them now
+        ## (sorry, Fluxid, did not see that early enough..)
+        self.bots = None
         
         try:
             states = game_result["status"]
