@@ -169,20 +169,8 @@ def main():
     except:
         rounds = 1
 
-    ##
-    ## helpless effort to stop the client gracefully, if you uncomment the lines below,
-    ## you can just delete the 'tcp_locker' file, to make it stop AFTER finishing the current game.
-    ##
-    #~ f = open("tcp_locker", "w")
-    #~ f.close()
     for i in range(rounds):
         tcp(host, port, botpath, pname, password, {})
-        #~ try:
-            #~ f=open("tcp_locker","r")
-            #~ f.close()
-        #~ except:
-            #~ print "user stopped me!"
-            #~ break
         
     
 if __name__ == "__main__":

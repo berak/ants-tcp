@@ -67,7 +67,6 @@ def load_map_info():
 
 
 
-
 #
 ## sandbox impl
 #
@@ -80,7 +79,7 @@ class TcpBox(threading.Thread):
         #dbg stuff
         self.name =""
         self.game_id=0
-        
+
         # start thread
         self.start()
         
@@ -191,7 +190,6 @@ class TcpGame(threading.Thread):
         try:
             book.games.remove(self.id)
         except: pass            
-            
 
     def run(self):
         starttime = time()
@@ -203,12 +201,13 @@ class TcpGame(threading.Thread):
         game_result = run_game(self.ants, self.bots, self.opts)
 
         ## don't need the client threads any more, so we can kill them now
-        ## (sorry, Fluxid, did not see that early enough..)
+        for i,b in enumerate(self.bots):
+            del(self.bots[i])
         self.bots = None
         
         try:
             states = game_result["status"]
-        except: # keyerror
+        except: 
             log.error("broken game %d: %s" % (self.id,game_result) )
             return
         if self.ants.turn < 1:
@@ -441,7 +440,6 @@ class TCPGameServer(object):
         except:
             pass
             
-                
     
     def serve(self):
         # have to create the game before collecting respective num of players:
@@ -467,8 +465,22 @@ class TCPGameServer(object):
             for s in inputready:
                 if s == self.server:
                     client, address = self.server.accept()
-                    data = client.recv(4096).strip()
-                    data = data.split(" ")
+                    ## Fluxid
+                    
+                    # break it if they never send user info
+                    client.settimeout(5)                    
+                    try:
+                        data = client.recv(4096).strip()
+                        data = data.split(" ")
+                    except Exception, e:
+                        log.error(str(e))
+                        continue
+                    if len(data) != 3:
+                        self.reject_client(client, "you need to send: [USER name password]." )
+                        continue
+                        
+                    client.settimeout(240)
+                    
                     name = data[1]
                     password = data[2]
                     name_ok = True
@@ -505,7 +517,7 @@ class TCPGameServer(object):
                     del( next_game.players[i] )
                     
             if t % 100 == 1:
-                log.info("%d games, %d players online." % (len(book.games),len(book.players)) )
+                log.info("%d games, %d players online. (%d threads)" % (len(book.games),len(book.players),threading.active_count()) )
             t += 1
             sleep(0.005)
                 
