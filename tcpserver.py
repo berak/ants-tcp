@@ -473,7 +473,7 @@ class TCPGameServer(object):
                         data = client.recv(4096).strip()
                         data = data.split(" ")
                     except Exception, e:
-                        log.error(str(e))
+                        log.error(str(e) + " on connect")
                         continue
                     if len(data) != 3:
                         self.reject_client(client, "you need to send: [USER name password]." , dolog=False)
