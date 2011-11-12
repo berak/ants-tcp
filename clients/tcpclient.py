@@ -132,6 +132,8 @@ def tcp(host, port, bot_command, user, password, options):
                 
     try:
         bot.kill()
+        sock.close()
+        sock = None
     except:
         pass
 

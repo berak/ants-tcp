@@ -533,8 +533,8 @@ def main():
     tcp_port = 2081
 
     opts = {
-        ## tcp opts:
-        'turns':750,
+        ## ants/engine opts:  (see http://aichallenge.org/game_settings.php)
+        'turns':1000,    # 1500 on aichallenge
         'loadtime': 5000, 
         'turntime': 5000,
         'viewradius2': 77,
@@ -546,7 +546,7 @@ def main():
         'food_turn': (19,37), # per turn
         'food_start': (75,175), # per land area
         'food_visible': (3,5), # in starting loc
-        'cutoff_percent': 0.66,
+        'cutoff_percent': 0.85,
         'cutoff_turn': 150,
         'kill_points': 2,
         
