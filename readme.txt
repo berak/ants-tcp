@@ -6,13 +6,14 @@ the running ones i know of:
 	http://213.88.39.97:2080/		// accoun		(RU)
 
 
+most of it is written in python, you'll need version >= 2.6 for this (fractions)
 
 you will need to start 
  * tcpserver.py (to run the games), as well as 
  * webserver.py (to show the results to the outer world).
 
 people, who want to play a game here will need to download [your_webserver_url]/clients/tcpclient.py to proxy their bot-io to the tcpserver
-(please also look at http://www.mabs.at/ewing/AntWatcher2000.jar for delt0r's gui-bot_wrapper, which makes using this *even more fun*.)
+(please also look at http://aichallenge.org/forums/viewtopic.php?f=25&t=1861 for delt0r's gui-bot_wrapper, which makes using this *even more fun*.)
 
 
 feel free to edit/change anything you like, after all, it's YOU, who will be hosting that, (not me ;)
@@ -23,8 +24,10 @@ tcpserver.py:
 	please look at the options & edit at the bottom in main.
 	default port is 2081.
 	about the trueskill impl:
-		the default is 'jskills', this assumes java installed. (breaks sometimes, but more accurate than the py version)
-		(the contest currently runs the moserware-php version, not included here. things to come.)
+		the default is 'jskills', this assumes java installed. 
+		(breaks sometimes, but more accurate than the py version)
+		(the contest currently runs the moserware-php version, 
+			not included here. things to come.)
 		
 webserver.py:
 	default port is 2080.
@@ -33,11 +36,24 @@ webserver.py:
 
 
 sql.py:
-	small sql admin shell to peek into the db, extract a replay, reset the rankings, whatever.
+	small sql admin shell to peek into the db, extract a replay, 
+	reset the rankings, whatever.
 
 
 
+problem/todo section:
+	fluxid reported/(cursed) a lot of hanging threads, resulting in not freeing socket fds.
+	hope that got fixed by adding a proper timeout on the accepted client socks, killing those zombies.
+		please send an issue, if you still get this.
 
-the original PW code:
+	you can't just force people playing constantly here, so the ranking 
+	suffers from players playing a few good games and never return,
+	fluctuations in the player skills present, and such.
+	
+	there's no pairing. just first comes, first served.
+	
+	
+
+the previous PW code:
 	https://github.com/McLeopold/TCPServer
 	http://www.benzedrine.cx/planetwars/server.tar.gz 
