@@ -17,8 +17,8 @@ people, who want to play a game here will need to download [your_webserver_url]/
 (please also look at http://aichallenge.org/forums/viewtopic.php?f=25&t=1861 for delt0r's gui-bot_wrapper, which makes using this *even more fun*.)
 
 
-feel free to edit/change anything you like, after all, it's YOU, who will be hosting that, (not me ;)
-please fork it on github, to make it easy for me to pull in any good idea/change you have.
+feel free to edit/change anything you like, after all, it's YOU, who will be hosting that..
+please fork it on github, to make it easy for me and others to pull in any good idea/change you have.
 
 
 tcpserver.py:
