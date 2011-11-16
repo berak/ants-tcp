@@ -7,6 +7,7 @@ the running ones i know of:
 
 
 most of it is written in python, you'll need version >= 2.6 for this (fractions)
+also you'll need php5.3 for the default trueskill impl, or java for the jskills version
 
 you will need to start 
  * tcpserver.py (to run the games), as well as 
@@ -24,10 +25,11 @@ tcpserver.py:
 	please look at the options & edit at the bottom in main.
 	default port is 2081.
 	about the trueskill impl:
-		the default is 'jskills', this assumes java installed. 
-		(breaks sometimes, but more accurate than the py version)
-		(the contest currently runs the moserware-php version, 
-			not included here. things to come.)
+		the most stable implementation is the php one. it needs php 5.3, though.
+		this is choosen by default, now.
+		as a fallback, the previous 'jskills' and 'py' impls are supplied here, too.
+			(jskills has problems with draws, thus breaks sometimes)
+			(trueskill.py has a bias problem, mu won't rise properly) 
 		
 webserver.py:
 	default port is 2080.
