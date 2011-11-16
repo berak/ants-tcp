@@ -242,15 +242,13 @@ class TcpGame(threading.Thread):
         db.add_game( self.id, self.map_name, self.ants.turn, draws,json.dumps(plr) )
                 
         # update trueskill
-        #~ if sum(ranks) >= len(ranks)-1:
         if self.opts['trueskill'] == 'jskills':
             self.calk_ranks_js( self.players, ranks, db )
+        elif self.opts['trueskill'] == 'php':
+            self.calk_ranks_php( self.players, ranks, db )
         else : # default
             self.calc_ranks_py( self.players, ranks, db )
-        #~ else:
-            #~ log.error( "game "+str(self.id)+" : ranking unsuitable for trueskill " + str(ranks) )            
 
-        ## this should go out
         # update rankings
         for i, p in enumerate(db.retrieve("select name from players order by skill desc",())):
             db.update_player_rank( p[0], i+1 )
@@ -344,6 +342,35 @@ class TcpGame(threading.Thread):
             ## hmm, java returns floats formatted like: 1,03 here, due to my locale(german) ?
             mu    = float(result[1].replace(",","."))
             sigma = float(result[2].replace(",","."))
+            skill = mu -sigma * 3
+            db.update_player_skill( p, skill, mu, sigma )
+
+
+    def calk_ranks_php( self, players, ranks, db ):
+        try:
+            tsupdater = subprocess.Popen(
+                ["php", "PHPSkills/ants_skills.php"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE)            
+            
+            for i,p in enumerate(players):
+                pdata = db.get_player((p,))
+                tsupdater.stdin.write("%f %f %d\n" % ( pdata[0][6], pdata[0][7], ranks[i]))
+            
+            tsupdater.stdin.write("\n")
+            tsupdater.stdin.flush()
+            tsupdater.wait()
+        except Exception,e:
+            log.error( "php - writing ranks : " + str(e) )
+            return
+            
+        for i,p in enumerate(players):
+            result =  tsupdater.stdout.readline().split() 
+            if len(result) != 2:
+                log.error("invalid phpskill result " + str(result))
+                return            
+            mu    = float(result[0])
+            sigma = float(result[1])
             skill = mu -sigma * 3
             db.update_player_skill( p, skill, mu, sigma )
 
@@ -551,7 +578,7 @@ def main():
         'kill_points': 2,
         
         ## non-ants related tcp opts
-        'trueskill': 'jskills',	# select trueskill implementation: 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
+        'trueskill': 'php',	# select trueskill implementation: 'php' (PHPSkills/ants_skills.php), 'py'(trueskill.py) or 'jskills'(java JSkills_0.9.0.jar) 
         'multi_games': 'True',  # allow users to play multiple games at the same time
                                 # if set to False, players will have to wait until their latest game ended
     }
