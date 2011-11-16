@@ -293,13 +293,15 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def serve_search(self, match):
         query = match.group(0).split("?")[1]
         player = query.split("=")[1]
-        res = self.server.db.retrieve("select * from players where name >= ? and name <= ?", (player, (player +u'\ufffd')))
-        html = self.header( "search results for '" + player + "'", need_sort=False )
-        html += "<ol>"
+        res = self.server.db.retrieve("select * from players where name >= ? and name <= ? limit 100", (player, (player +u'\ufffd')))
+        html = self.header( "search results for '" + player + "'" )
+        html += self.rank_head()
+        html += "<tbody>"
         for i,z in enumerate(res):
-            html += "<li><a href='/player/"+z[1]+"'>" + z[1] + "</a></li><br>"
-        html += "</ol>"
+            html += self.rank_line( z )
+        html += "</tbody></table>\n"
         html += self.footer()
+        html += self.footer_sort('players')
         html += "</body></html>"
         self.wfile.write(html)
 
