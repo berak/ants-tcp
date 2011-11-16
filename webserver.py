@@ -91,7 +91,7 @@ class AntsHttpServer(HTTPServer):
 
         ## anything static gets cached on startup here.
         self.cache = {}
-        #~ self.cache_file("/favicon.ico","favicon.ico")
+        self.cache_file("/favicon.ico", "favicon.ico")
         self.cache_file("/tcpclient.py", "clients/tcpclient.py")
         self.cache_file("/tcpclient.py3", "clients/tcpclient.py3")
         self.cache_dir("js")

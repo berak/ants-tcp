@@ -468,7 +468,7 @@ class TCPGameServer(object):
                     
                     ## Fluxid                    
                     # break it if they never send user info
-                    client.settimeout(5)                    
+                    client.settimeout(10)                    
                     try:
                         data = client.recv(4096).strip()
                         data = data.split(" ")
@@ -479,8 +479,8 @@ class TCPGameServer(object):
                         self.reject_client(client, "you need to send: [USER name password]." , dolog=False)
                         continue
                     
-                    # set a timeout of 4 min for the rest of the game    
-                    client.settimeout(240)
+                    # set a timeout of 10 min for the rest of the game    
+                    client.settimeout(600)
                     
                     name = data[1]
                     password = data[2]
