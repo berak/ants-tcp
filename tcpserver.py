@@ -237,7 +237,11 @@ class TcpGame(threading.Thread):
         
         plr = {}
         for i,p in enumerate(self.players):
-            plr[p] = (scores[i], states[i])
+            res = db.get_player((p,))
+            status = states[i]
+            if len(res)>0:
+                status += " (rank %d, skill %2.2f)" % (res[0][4],res[0][5]) 
+            plr[p] = (scores[i], status)
             db.update("insert into gameindex values(?,?,?)",(None,p,self.id))
         db.add_game( self.id, self.map_name, self.ants.turn, draws,json.dumps(plr) )
                 
