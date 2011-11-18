@@ -11,6 +11,10 @@ import random
 import threading
 import trueskill
 import subprocess
+try:
+    from Queue import Queue, Empty
+except ImportError:
+    from queue import Queue, Empty
 
 from math import ceil, sqrt
 from time import time,sleep
@@ -74,7 +78,7 @@ class TcpBox(threading.Thread):
     def __init__(self, sock):
         threading.Thread.__init__(self)
         self.sock = sock
-        self.inp_lines = []
+        self.inp_lines = Queue()
         
         #dbg stuff
         self.name =""
@@ -108,7 +112,7 @@ class TcpBox(threading.Thread):
                 else:
                     line += c
             if line:
-                self.inp_lines.append(line)                
+                self.inp_lines.put(line)                
         
     ## next 2 are commented out to avoid interference with the thread interface
     #~ @property
@@ -145,11 +149,12 @@ class TcpBox(threading.Thread):
         return self.write(line + "\n")
 
     def read_line(self, timeout=0):
-        if (len(self.inp_lines) == 0) or (not self.sock):
+        if not self.sock:
+            timeout=0
+        try:
+            return self.inp_lines.get(block=True, timeout=timeout)
+        except Empty:
             return None
-        line = self.inp_lines[0]
-        self.inp_lines = self.inp_lines[1:]
-        return line
 
 
     ## dummies
