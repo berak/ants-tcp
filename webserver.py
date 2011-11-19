@@ -187,7 +187,7 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             <html>
             <head>
                 <title>Ant Canvas</title>
-                <script type="text/javascript" src="/js/visualizer.js"></script>	
+                <script type="text/javascript" src="/js/""" + self.server.opts['visualizer'] + """.js"></script>	
                 <script type="text/javascript">
                     window.isFullscreenSupported = function() {
                         return false;
@@ -468,6 +468,10 @@ def main():
     opts = {
         ## web opts:
         'sort': 'True',			# include tablesorter & jquery and have sortable tables(requires ~70kb additional download)
+        
+        ## visualizer:
+        'visualizer': 'visualizer', # choose between 'visualizer' (13 files, 209kb) or 'visualizer-min'(83kb)
+                                        # the minified version was stolen from the challenge, it's not part of the repo.
 
         ## read only info
         'host': socket.gethostname(), # !! please change that to your actual hostname or ip visible from the outside !!
