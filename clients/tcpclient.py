@@ -120,6 +120,11 @@ def tcp(host, port, bot_command, user, password, options):
         while 1:
             answer = bot.stdout.readline()
             if not answer:	break
+
+            # weed out stuff meant for the extended visualizer
+            if answer.startswith('v'): continue
+            if answer.startswith('i'): continue
+                
             client_mess += answer 
             if answer.startswith("go"):	break
         
