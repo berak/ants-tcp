@@ -14,7 +14,6 @@ you will need to start
  * webserver.py (to show the results to the outer world).
 
 people, who want to play a game here will need to download [your_webserver_url]/clients/tcpclient.py to proxy their bot-io to the tcpserver
-(please also look at http://aichallenge.org/forums/viewtopic.php?f=25&t=1861 for delt0r's gui-bot_wrapper, which makes using this *even more fun*.)
 
 
 feel free to edit/change anything you like, after all, it's YOU, who will be hosting that..

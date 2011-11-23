@@ -93,7 +93,7 @@ class AntsHttpServer(HTTPServer):
         self.cache = {}
         self.cache_file("/favicon.ico", "favicon.ico")
         self.cache_file("/tcpclient.py", "clients/tcpclient.py")
-        self.cache_file("/tcpclient.py3", "clients/tcpclient.py3")
+        #~ self.cache_file("/tcpclient.py3", "clients/tcpclient.py3")
         self.cache_dir("js")
         self.cache_dir("maps")
         self.cache_dir("data/img")
@@ -418,7 +418,8 @@ class AntsHttpHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             
     ## static files aer served from cache
     def serve_file(self, match):
-        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','py3':'application/python3','html':'text/html'}
+        #~ mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','py3':'application/python3','html':'text/html'}
+        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','gif':'image/gif','js':'text/javascript','py':'application/python','html':'text/html'}
         try:
             junk,end = match.group(0).split('.')
             mime_type = mime[end]
