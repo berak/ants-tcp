@@ -125,8 +125,8 @@ def tcp(host, port, bot_command, user, password, options):
                 break
                 
             # weed out stuff meant for the extended visualizer
-            if answer.startswith('v'): continue
-            if answer.startswith('i'): continue
+            if answer.startswith(b'v'): continue
+            if answer.startswith(b'i'): continue
                 
             bot_output.write(answer)
             if answer.startswith(b'go'):
