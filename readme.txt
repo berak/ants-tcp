@@ -4,7 +4,8 @@ the running ones i know of:
 	http://tcpants.com       		// romans01		(US)
 	http://ash.webfactional.com/	// ash0d		(US) calif.
 	http://213.88.39.97:2080/		// accoun		(RU)
-
+	http://bhickey.net:2080/		// ?? 			(US)
+	
 
 most of it is written in python, you'll need version >= 2.6 for this (fractions)
 also you'll need php5.3 for the default trueskill impl, or java for the jskills version
