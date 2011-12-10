@@ -11,6 +11,9 @@ import random
 import threading
 import trueskill
 import subprocess
+import re
+import string
+
 try:
     from Queue import Queue, Empty
 except ImportError:
@@ -46,7 +49,7 @@ log.addHandler(ch)
 
 BUFSIZ = 4096
 
-
+RE_TURNTIME = re.compile('^turntime \d+$', re.M)
 
 ## ugly global 
 class Bookkeeper:
@@ -140,6 +143,10 @@ class TcpBox(threading.Thread):
 
     def write(self, str):
         try:
+            # as of public request, cheat here, (hardcoded hack, yuck)
+            # make the players believe, they only got 500 ms instead of 5000, like on the main thing.. ;)
+            str = RE_TURNTIME.sub('turntime 500', str, 1) 
+            
             self.sock.sendall(str)
         except Exception, e:
             #~ log.warning("writing to invalid socket %s  game:%d [%s]" % (self.name,self.game_id,str.replace('\n','')) )
@@ -465,6 +472,17 @@ class TCPGameServer(object):
         book.games.add(g.id)
         return g
 
+    def invalid_word( self, word, use ):
+        """ check for invalid chars since json won't like them. """
+        for l in word:
+            if l in string.ascii_letters: continue
+            if l in string.digits : continue
+            if l =='_' : continue
+            return ( "your "+use+" (" + word + ") contains invalid characters, please choose another one!" )
+        if len(word) > 32:
+            return ( "username and password must not be longer than 32 chars." )
+        return ""
+
 
     def reject_client(self,client, message,dolog=True):
         try:
@@ -527,6 +545,14 @@ class TCPGameServer(object):
                             name_ok = False
                             break
                     if not name_ok:
+                        continue
+                    err = self.invalid_word( name, "username" )
+                    if err != "":
+                        self.reject_client( client, err, False )
+                        continue
+                    err = self.invalid_word( password, "password" )
+                    if err != "":
+                        self.reject_client( client, err, False )
                         continue
                     # if in 'single game per player(name)' mode, just reject the connection here..
                     if (name in book.players) and (str(self.opts['multi_games'])=="False"):

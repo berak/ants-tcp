@@ -156,19 +156,6 @@ def tcp(host, port, bot_command, user, password, options):
         pass
 
 
-def check_string( pname, use ):
-    """ check for invalid chars since json won't like them. """
-    for l in pname:
-        if l in string.ascii_letters: continue
-        if l in string.digits : continue
-        if l =='_' : continue
-        print( "your "+use+" (" + pname + ") contains invalid characters, please choose another one!" )
-        return False
-    if len(use) > 32:
-        print( "username and password must not be longer than 32 chars." )
-        return False
-    return True
-
 
 def main():
     if len(sys.argv) < 6:
@@ -180,11 +167,6 @@ def main():
     botpath = sys.argv[3]
     pname = sys.argv[4]
     password = sys.argv[5]
-
-    if not check_string(pname, "botname"):
-        return
-    if not check_string(password, "password"):
-        return
 
     try:
         rounds = int(sys.argv[6])
