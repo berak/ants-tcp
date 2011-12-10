@@ -55,7 +55,10 @@ class GameDB():
 		self.update("insert into replays values(?,?)", (i,data) )
 		
 	def add_game( self, i, map, turns, draws, players ):
-		self.update("insert into games values(?,?,?,?,?,?)", (i,players,self.now(),map,turns,draws))
+		self.update("insert into games values(?,?,?,?,?,?)", (i,players,self.now(),map,turns,draws)) 
+		##
+		## FIXME! date and map are swapped!, can't change that now, unfortunately, as it will break existing databases!
+		##
 		
 	def num_games( self ):
 		return int(self.retrieve( "select count(*) from games" )[0][0])
@@ -68,7 +71,9 @@ class GameDB():
 		g = []
 		for a in arr:
 			z = self.retrieve( "select * from games where id=?", (a[0],))
-			g.append( z[0]  )
+			## FIXME!! why can this ever come out empty ?
+			if len(z) > 0:
+				g.append( z[0]  )
 		return g
 		
 	def num_games_for_player( self, player ):
