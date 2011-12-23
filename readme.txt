@@ -1,3 +1,8 @@
+*the contest is over!*
+
+	thank you, accoun, bmh, fluxid, romans01 , and all nameless others, who hosted it,
+	fixed it's countless bugs, or generally endured it's various deficiencies..
+
 
 the running ones i know of:
 	http://ants.fluxid.pl    		// fluxid		(DE)
